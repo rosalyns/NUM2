@@ -12,7 +12,7 @@ public class TUI implements Runnable {
 	 *
 	 */
 	public enum State {
-		INMENU, WANT_TO_UPLOAD, WANT_TO_DOWNLOAD, STATISTICS, PROGRESS
+		INMENU, WANT_TO_UPLOAD, WANT_TO_DOWNLOAD, CHOOSE_DOWNLOAD, STATISTICS, PROGRESS
 	}
 
 	private State state;
@@ -63,6 +63,9 @@ public class TUI implements Runnable {
 				break;
 			case WANT_TO_DOWNLOAD:
 				client.askForFiles();
+				break;
+			case CHOOSE_DOWNLOAD:
+				
 				break;
 			case STATISTICS:
 				client.askForStatistics();

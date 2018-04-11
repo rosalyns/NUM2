@@ -4,7 +4,10 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.List;
+import java.util.ArrayList;
 
+import general.Task;
 import general.Config;
 import general.Header;
 
@@ -17,6 +20,7 @@ public class Client implements ITimeoutEventHandler {
 	private int port;
 	private DatagramSocket socket;
 	private TUI tui;
+	private List<Task> tasks;
 
 	// whether the simulation is finished
 	private boolean simulationFinished = false;
@@ -24,8 +28,9 @@ public class Client implements ITimeoutEventHandler {
 	public Client(InetAddress serverAddress, int serverPort) throws IOException {
 		this.host = serverAddress;
 		this.port = serverPort;
-		socket = new DatagramSocket();
-		tui = new TUI(this, System.in);
+		this.tasks = new ArrayList<Task>();
+		this.socket = new DatagramSocket();
+		this.tui = new TUI(this, System.in);
 		Thread tuiThread = new Thread(tui);
 		tuiThread.start();
 	}
@@ -73,6 +78,7 @@ public class Client implements ITimeoutEventHandler {
 		sequenceNumber = (sequenceNumber + 1) % Config.K;
 		sendPacket(pkt);
 		
+		tasks.add(new Task(Task.Type.UPLOAD, fileName));
 	}
 	
 	private void sendFile(byte[] file) {
