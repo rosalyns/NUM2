@@ -5,6 +5,8 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 
+import general.Config;
+
 public class Client implements ITimeoutEventHandler {
 
 	// server address
@@ -28,24 +30,6 @@ public class Client implements ITimeoutEventHandler {
 	}
 
 	/**
-	 * Sends a message to the server
-	 * 
-	 * @param message
-	 *            the message to send
-	 */
-	private void sendMessage(byte[] data) {
-		DatagramPacket pkt = new DatagramPacket(data, data.length, host, port);
-		
-		try {
-			socket.send(pkt);
-			System.out.println("Sending message..");
-		} catch (IOException e) {
-			e.printStackTrace();
-			simulationFinished = true;
-		}
-	}
-
-	/**
 	 * @return whether the simulation has finished
 	 */
 	public boolean isFinished() {
@@ -53,27 +37,14 @@ public class Client implements ITimeoutEventHandler {
 	}
 	// ----------- methods for TUI -------------//
 	
-	static final int HEADERSIZE = 24; // number of header bytes in each packet
-	static final int DATASIZE = 128; // max. number of user data bytes in each packet
-//	static final int K = 0xffffffff;
-	static final int K = 0x0fffffff;
-	static final int SWS = 25;
-	static final int RWS = 25;
-
 	private int LAR = -1;
 	private int LFR = -1;
 	private int filePointer = 0;
 	private int datalen = -1;
 	private int sequenceNumber = 0;
-	private boolean[] ackedPackets = new boolean[K];
+	private boolean[] ackedPackets = new boolean[Config.K];
 	private boolean lastPacket = false;
 	
-	public static final int REQ_UP = 0b10000000;
-	public static final int REQ_DOWN = 0b00100000;
-	public static final int UP = 0b01000000;
-	public static final int DOWN = 0b00010000;
-	public static final int STATS = 0b00001000;
-
 	public void askForFiles() {
 		System.out.println("asking for files..");
 	}
@@ -95,16 +66,16 @@ public class Client implements ITimeoutEventHandler {
 		
 		while (!lastPacket && !simulationFinished) {
 			while (filePointer < fileContents.length && inSendingWindow(sequenceNumber)) {
-				datalen = Math.min(DATASIZE, fileContents.length - filePointer);
-				lastPacket = datalen < DATASIZE;
+				datalen = Math.min(Config.DATASIZE, fileContents.length - filePointer);
+				lastPacket = datalen < Config.DATASIZE;
 
-				byte[] pkt = new byte[HEADERSIZE + datalen];
+				byte[] pkt = new byte[Config.HEADERSIZE + datalen];
 				byte[] header = this.createHeader(sequenceNumber);
 				System.out.println("Sending file with seq_no " + sequenceNumber);
 				
-				System.arraycopy(header, 0, pkt, 0, HEADERSIZE);
-				System.arraycopy(fileBytes, filePointer, pkt, HEADERSIZE, datalen);
-				sequenceNumber = (sequenceNumber + 1) % K;
+				System.arraycopy(header, 0, pkt, 0, Config.HEADERSIZE);
+				System.arraycopy(fileBytes, filePointer, pkt, Config.HEADERSIZE, datalen);
+				sequenceNumber = (sequenceNumber + 1) % Config.K;
 				filePointer += datalen;
 				sendPacket(pkt);
 				
@@ -150,36 +121,35 @@ public class Client implements ITimeoutEventHandler {
 	}
 	
 	private DatagramPacket getEmptyPacket() {
-		byte[] data = new byte[HEADERSIZE + DATASIZE];
+		byte[] data = new byte[Config.HEADERSIZE + Config.DATASIZE];
 		return new DatagramPacket(data, data.length);
 	}
 	
 	private void sendPacket(byte[] packet) {
 		try {
-			socket.send(new DatagramPacket(packet, packet.length, InetAddress.getByName("localhost"), port));
+			socket.send(new DatagramPacket(packet, packet.length, host, port));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		// getNetworkLayer().sendPacket(packet);
 		client.Utils.Timeout.SetTimeout(1000, this, packet);
 	}
 
 	private boolean inSendingWindow(int packetNumber) {
-		return (LAR < packetNumber && packetNumber <= (LAR + SWS))
-				|| (LAR + SWS >= K && packetNumber <= (LAR + SWS) % K);
+		return (LAR < packetNumber && packetNumber <= (LAR + Config.SWS))
+				|| (LAR + Config.SWS >= Config.K && packetNumber <= (LAR + Config.SWS) % Config.K);
 	}
 
 	public boolean inReceivingWindow(int packetNumber) {
-		return (LFR < packetNumber && packetNumber <= (LFR + RWS))
-				|| (LFR + RWS >= K && packetNumber <= (LFR + RWS) % K);
+		return (LFR < packetNumber && packetNumber <= (LFR + Config.RWS))
+				|| (LFR + Config.RWS >= Config.K && packetNumber <= (LFR + Config.RWS) % Config.K);
 	}
 
 	private int nextAckPacket() {
-		return (LAR + 1) % K;
+		return (LAR + 1) % Config.K;
 	}
 
 	public int nextReceivingPacket() {
-		return (LFR + 1) % K;
+		return (LFR + 1) % Config.K;
 	}
 
 	private boolean receivedAck(int packetNumber) {
@@ -195,7 +165,7 @@ public class Client implements ITimeoutEventHandler {
 	}
 	
 	private byte[] createHeader(int seqNo) {
-		byte[] header = new byte[HEADERSIZE];
+		byte[] header = new byte[Config.HEADERSIZE];
 
 		//task_id
 		header[0] = 0x00;
@@ -245,7 +215,6 @@ public class Client implements ITimeoutEventHandler {
 		seqBytes[3] = (byte) no;
 		return seqBytes;
 	}
-	
 	
 	public void shutDown() {
 		simulationFinished = true;
