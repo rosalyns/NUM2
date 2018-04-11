@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
-import client.Utils.Timeout;
 
 /**
  * Helper utilities. Supplied for convenience.
@@ -47,8 +46,8 @@ public class Utils {
      * @param id the file ID
      * @return the array of integers, representing the contents of the file to transmit
      */
-    public static Integer[] getFileContents(int id) {
-        File fileToTransmit = new File(String.format("file%d.png", id));
+    public static Integer[] getFileContents(String fileName) {
+        File fileToTransmit = new File(String.format(fileName));
         try (FileInputStream fileStream = new FileInputStream(fileToTransmit)) {
             Integer[] fileContents = new Integer[(int) fileToTransmit.length()];
 

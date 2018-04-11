@@ -5,7 +5,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 
-public class Client {
+public class Client implements ITimeoutEventHandler {
 
 	// server address
 	private InetAddress host;
@@ -13,6 +13,7 @@ public class Client {
 	// server port
 	private int port;
 	private DatagramSocket socket;
+	private TUI tui;
 
 	// whether the simulation is finished
 	private boolean simulationFinished = false;
@@ -21,10 +22,9 @@ public class Client {
 		this.host = serverAddress;
 		this.port = serverPort;
 		socket = new DatagramSocket();
-		
-		byte[] buf = "Hallo!!!".getBytes();
-		
-		this.sendMessage(buf);
+		tui = new TUI(this, System.in);
+		Thread tuiThread = new Thread(tui);
+		tuiThread.start();
 	}
 
 	/**
@@ -35,17 +35,13 @@ public class Client {
 	 */
 	private void sendMessage(byte[] data) {
 		DatagramPacket pkt = new DatagramPacket(data, data.length, host, port);
-		while (!simulationFinished) {
-			try {
-				socket.send(pkt);
-				System.out.println("Sending message..");
-				Thread.sleep(2000);
-			} catch (IOException e) {
-				e.printStackTrace();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-				simulationFinished=true;
-			}
+		
+		try {
+			socket.send(pkt);
+			System.out.println("Sending message..");
+		} catch (IOException e) {
+			e.printStackTrace();
+			simulationFinished = true;
 		}
 	}
 
@@ -54,6 +50,205 @@ public class Client {
 	 */
 	public boolean isFinished() {
 		return simulationFinished;
+	}
+	// ----------- methods for TUI -------------//
+	
+	static final int HEADERSIZE = 24; // number of header bytes in each packet
+	static final int DATASIZE = 128; // max. number of user data bytes in each packet
+//	static final int K = 0xffffffff;
+	static final int K = 0x0fffffff;
+	static final int SWS = 25;
+	static final int RWS = 25;
+
+	private int LAR = -1;
+	private int LFR = -1;
+	private int filePointer = 0;
+	private int datalen = -1;
+	private int sequenceNumber = 0;
+	private boolean[] ackedPackets = new boolean[K];
+	private boolean lastPacket = false;
+	
+	public static final int REQ_UP = 0b10000000;
+	public static final int REQ_DOWN = 0b00100000;
+	public static final int UP = 0b01000000;
+	public static final int DOWN = 0b00010000;
+	public static final int STATS = 0b00001000;
+
+	public void askForFiles() {
+		System.out.println("asking for files..");
+	}
+	
+	public void askForStatistics() {
+		System.out.println("asking for statistics..");
+	}
+	
+	public void askForProgress() {
+		System.out.println("asking for progress..");
+	}
+	
+	public void uploadFile(String fileName) {
+		Integer[] fileContents = Utils.getFileContents(fileName);
+		byte[] fileBytes = new byte[fileContents.length];
+		for (int i = 0; i < fileContents.length; i++) {
+			fileBytes[i] = (byte) (int)fileContents[i];
+		}
+		
+		while (!lastPacket && !simulationFinished) {
+			while (filePointer < fileContents.length && inSendingWindow(sequenceNumber)) {
+				datalen = Math.min(DATASIZE, fileContents.length - filePointer);
+				lastPacket = datalen < DATASIZE;
+
+				byte[] pkt = new byte[HEADERSIZE + datalen];
+				byte[] header = this.createHeader(sequenceNumber);
+				System.out.println("Sending file with seq_no " + sequenceNumber);
+				
+				System.arraycopy(header, 0, pkt, 0, HEADERSIZE);
+				System.arraycopy(fileBytes, filePointer, pkt, HEADERSIZE, datalen);
+				sequenceNumber = (sequenceNumber + 1) % K;
+				filePointer += datalen;
+				sendPacket(pkt);
+				
+				 try {
+				 Thread.sleep(1000);
+				 } catch (InterruptedException e) {
+				 }
+			}
+			boolean canSendAgain = false;
+			while (!canSendAgain) {
+				DatagramPacket p = getEmptyPacket();
+				try {
+					socket.receive(p);
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
+				byte[] packet = p.getData();
+				// p.getAddress()
+				// Integer[] packet = getNetworkLayer().receivePacket();
+				if (packet != null) {
+					System.out.println("ACK" + packet[0] + " received.");
+					if (packet[0] == nextAckPacket()) {
+						LAR = packet[0];
+						canSendAgain = true;
+						System.out.println("LAR is now " + LAR + " .");
+					} else if (inSendingWindow(packet[0])) {
+						ackedPackets[packet[0]] = true;
+					}
+
+					while (ackedPackets[nextAckPacket()]) {
+						LAR = nextAckPacket();
+						ackedPackets[LAR] = false;
+						System.out.println(LAR + " was already acked.");
+					}
+				} else {
+					try {
+						Thread.sleep(10);
+					} catch (InterruptedException e) {
+					}
+				}
+			}
+		}
+	}
+	
+	private DatagramPacket getEmptyPacket() {
+		byte[] data = new byte[HEADERSIZE + DATASIZE];
+		return new DatagramPacket(data, data.length);
+	}
+	
+	private void sendPacket(byte[] packet) {
+		try {
+			socket.send(new DatagramPacket(packet, packet.length, InetAddress.getByName("localhost"), port));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		// getNetworkLayer().sendPacket(packet);
+		client.Utils.Timeout.SetTimeout(1000, this, packet);
+	}
+
+	private boolean inSendingWindow(int packetNumber) {
+		return (LAR < packetNumber && packetNumber <= (LAR + SWS))
+				|| (LAR + SWS >= K && packetNumber <= (LAR + SWS) % K);
+	}
+
+	public boolean inReceivingWindow(int packetNumber) {
+		return (LFR < packetNumber && packetNumber <= (LFR + RWS))
+				|| (LFR + RWS >= K && packetNumber <= (LFR + RWS) % K);
+	}
+
+	private int nextAckPacket() {
+		return (LAR + 1) % K;
+	}
+
+	public int nextReceivingPacket() {
+		return (LFR + 1) % K;
+	}
+
+	private boolean receivedAck(int packetNumber) {
+		return ackedPackets[packetNumber];
+	}
+
+	@Override
+	public void TimeoutElapsed(Object tag) {
+		int numberPacketSent = ((byte[]) tag)[0];
+		if (inSendingWindow(numberPacketSent) && !receivedAck(numberPacketSent)) {
+			sendPacket((byte[]) tag);
+		}
+	}
+	
+	private byte[] createHeader(int seqNo) {
+		byte[] header = new byte[HEADERSIZE];
+
+		//task_id
+		header[0] = 0x00;
+		header[1] = 0x00;
+		header[2] = 0x00;
+		header[3] = 0x00;
+		
+		//checksum
+		header[4] = 0x00;
+		header[5] = 0x00;
+		header[6] = 0x00;
+		header[7] = 0x00;
+		
+		//seq_number
+		byte[] bytes = dec2fourBytes(seqNo);
+		header[8] = bytes[0];
+		header[9] = bytes[1];
+		header[10] = bytes[2];
+		header[11] = bytes[3];
+		
+		//ack_number
+		header[12] = 0x00;
+		header[13] = 0x00;
+		header[14] = 0x00;
+		header[15] = 0x00;
+		
+		//flags: req_upload/upload/req_download/download/stats
+		header[16] = 0x00;
+		header[17] = 0x00;
+		header[18] = 0x00;
+		header[19] = 0x00;
+		
+		//window_size
+		header[20] = (byte) 0xff;
+		header[21] = (byte) 0xff;
+		header[22] = (byte) 0xff;
+		header[23] = (byte) 0xff;
+		
+		return header;
+	}
+	
+	private byte[] dec2fourBytes(int no) {
+		byte[] seqBytes = new byte[4];
+		seqBytes[0] = (byte) (no >> 24);
+		seqBytes[1] = (byte) (no >> 16);
+		seqBytes[2] = (byte) (no >> 8);
+		seqBytes[3] = (byte) no;
+		return seqBytes;
+	}
+	
+	
+	public void shutDown() {
+		simulationFinished = true;
 	}
 
 }

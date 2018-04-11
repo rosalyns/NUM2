@@ -9,12 +9,11 @@ import client.Client;
 public class Main {
 
     private static boolean keepAlive = true;
-    private static boolean running = false;
 
     // have to find Pi without IP address
     // See the website for the hostname of the server
-     private static String serverAddress = "192.168.1.1";    //PI
-//    private static String serverAddress = "localhost";
+//     private static String serverAddress = "192.168.1.1";    //PI
+    private static String serverAddress = "localhost";
 
     // Challenge server port
     private static int serverPort = 8002;
@@ -22,9 +21,6 @@ public class Main {
     private Main() {}
 
     public static void main(String[] args) {
-        running = true;
-        initShutdownHook();
-        
         Client client = null;
         InetAddress host = null;
         
@@ -49,23 +45,5 @@ public class Main {
         }
 
         System.out.println("Stopped");
-        running = false;
-    }
-
-    private static void initShutdownHook() {
-        final Thread shutdownThread = new Thread() {
-            @Override
-            public void run() {
-                keepAlive = false;
-                while (running) {
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
-            }
-        };
-        Runtime.getRuntime().addShutdownHook(shutdownThread);
     }
 }
