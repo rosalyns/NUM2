@@ -1,0 +1,16 @@
+- hoe krijg ik iets in NUM2.jar ?
+- moet het op een speciale UDP poort of willekeurige poort, maar wel dezelfde
+- ticks gebruiken ?
+
+
+
+
+
+
+
+
+(SIGNED) BYTE NAAR INT:
+int a = b & 0xff			// java ziet dit als 200
+
+INT NAAR BYTE
+byte b = (byte) 200; 	// java ziet dit dus als -56
