@@ -6,6 +6,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 
 import general.Config;
+import general.Header;
 
 public class Client implements ITimeoutEventHandler {
 
@@ -64,17 +65,28 @@ public class Client implements ITimeoutEventHandler {
 			fileBytes[i] = (byte) (int)fileContents[i];
 		}
 		
+		byte[] pkt = new byte[Config.HEADERSIZE + fileName.length()];
+		byte[] header = Header.ftp(0,sequenceNumber, 0,Config.REQ_UP, 0xffffffff);
+		System.out.println("Sending packet with seq_no " + sequenceNumber);
+		System.arraycopy(header, 0, pkt, 0, Config.HEADERSIZE);
+		System.arraycopy(fileName.getBytes(), 0, pkt, Config.HEADERSIZE, fileName.length());
+		sequenceNumber = (sequenceNumber + 1) % Config.K;
+		sendPacket(pkt);
+		
+	}
+	
+	private void sendFile(byte[] file) {
 		while (!lastPacket && !simulationFinished) {
-			while (filePointer < fileContents.length && inSendingWindow(sequenceNumber)) {
-				datalen = Math.min(Config.DATASIZE, fileContents.length - filePointer);
+			while (filePointer < file.length && inSendingWindow(sequenceNumber)) {
+				datalen = Math.min(Config.DATASIZE, file.length - filePointer);
 				lastPacket = datalen < Config.DATASIZE;
 
 				byte[] pkt = new byte[Config.HEADERSIZE + datalen];
-				byte[] header = this.createHeader(sequenceNumber);
-				System.out.println("Sending file with seq_no " + sequenceNumber);
+				byte[] header = Header.ftp(0, sequenceNumber,0, Config.UP, 0xffffffff);
+				System.out.println("Sending packet with seq_no " + sequenceNumber);
 				
 				System.arraycopy(header, 0, pkt, 0, Config.HEADERSIZE);
-				System.arraycopy(fileBytes, filePointer, pkt, Config.HEADERSIZE, datalen);
+				System.arraycopy(file, filePointer, pkt, Config.HEADERSIZE, datalen);
 				sequenceNumber = (sequenceNumber + 1) % Config.K;
 				filePointer += datalen;
 				sendPacket(pkt);
@@ -162,58 +174,6 @@ public class Client implements ITimeoutEventHandler {
 		if (inSendingWindow(numberPacketSent) && !receivedAck(numberPacketSent)) {
 			sendPacket((byte[]) tag);
 		}
-	}
-	
-	private byte[] createHeader(int seqNo) {
-		byte[] header = new byte[Config.HEADERSIZE];
-
-		//task_id
-		header[0] = 0x00;
-		header[1] = 0x00;
-		header[2] = 0x00;
-		header[3] = 0x00;
-		
-		//checksum
-		header[4] = 0x00;
-		header[5] = 0x00;
-		header[6] = 0x00;
-		header[7] = 0x00;
-		
-		//seq_number
-		byte[] bytes = dec2fourBytes(seqNo);
-		header[8] = bytes[0];
-		header[9] = bytes[1];
-		header[10] = bytes[2];
-		header[11] = bytes[3];
-		
-		//ack_number
-		header[12] = 0x00;
-		header[13] = 0x00;
-		header[14] = 0x00;
-		header[15] = 0x00;
-		
-		//flags: req_upload/upload/req_download/download/stats
-		header[16] = 0x00;
-		header[17] = 0x00;
-		header[18] = 0x00;
-		header[19] = 0x00;
-		
-		//window_size
-		header[20] = (byte) 0xff;
-		header[21] = (byte) 0xff;
-		header[22] = (byte) 0xff;
-		header[23] = (byte) 0xff;
-		
-		return header;
-	}
-	
-	private byte[] dec2fourBytes(int no) {
-		byte[] seqBytes = new byte[4];
-		seqBytes[0] = (byte) (no >> 24);
-		seqBytes[1] = (byte) (no >> 16);
-		seqBytes[2] = (byte) (no >> 8);
-		seqBytes[3] = (byte) no;
-		return seqBytes;
 	}
 	
 	public void shutDown() {

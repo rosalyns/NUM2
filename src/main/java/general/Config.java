@@ -18,5 +18,6 @@ public class Config {
 	public static final int UP = 0b01000000;
 	public static final int DOWN = 0b00010000;
 	public static final int STATS = 0b00001000;
+	public static final int ACK = 0b000000100;
 	
 }
