@@ -7,6 +7,7 @@ import java.net.InetAddress;
 
 import client.ITimeoutEventHandler;
 import client.Utils;
+import general.Config;
 
 public class Server {
 
@@ -26,8 +27,6 @@ public class Server {
 
 	private int port;
 	private DatagramSocket sock;
-	static final int HEADERSIZE = 24; // number of header bytes in each packet
-	static final int DATASIZE = 128;
 
 	private static boolean keepAlive = true;
 
@@ -72,7 +71,7 @@ public class Server {
 	}
 
 	private DatagramPacket getEmptyPacket() {
-		byte[] data = new byte[HEADERSIZE + DATASIZE];
+		byte[] data = new byte[Config.HEADERSIZE + Config.DATASIZE];
 		return new DatagramPacket(data, data.length);
 	}
 
