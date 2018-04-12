@@ -10,7 +10,7 @@ import client.ITimeoutEventHandler;
 import client.Utils;
 
 public class Task extends Thread implements ITimeoutEventHandler {
-	public static int ID = 0;
+	public static int ID = 1;
 
 	public enum Type {
 		DOWNLOAD, UPLOAD
@@ -147,14 +147,12 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	
 	public void addContent(int seqNo, byte[] data) {
 		if (seqNo == nextReceivingPacket()) {
-			int oldlength = file.length;
-			int datalen = data.length;
-			file = Arrays.copyOf(file, oldlength + datalen);
-			System.arraycopy(data, 0, file, oldlength, datalen);
+			file = Utils.mergeArrays(file, data);
 			System.out.println("added " + seqNo + " to filecontent.");
 			if (file.length == this.totalFileSize) {	// means COMPLETE
 				lastPacket = true;
 				System.out.println("finished file..");
+				//TODO actually setContents in the file
 			}
 			LFR++;
 		} else if (inReceivingWindow(seqNo)) {
@@ -162,15 +160,13 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		}
 		
 		while (storedPackets[nextReceivingPacket()] != null) {
-			int oldlength = file.length;
-			int datalen = storedPackets[nextReceivingPacket()].length;
-			file = Arrays.copyOf(file, oldlength + datalen);
-			System.arraycopy(storedPackets[nextReceivingPacket()], 0, file, oldlength, datalen);
+			file = Utils.mergeArrays(file, storedPackets[nextReceivingPacket()]);
 			System.out.println("added " + nextReceivingPacket() + " to filecontent.");
 			
 			if (file.length == this.totalFileSize) {	// means COMPLETE
 				lastPacket = true;
 				System.out.println("finished file..");
+				//TODO actually setContents in the file
 			}
 			storedPackets[nextReceivingPacket()] = null;
 			LFR++;

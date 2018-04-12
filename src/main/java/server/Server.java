@@ -34,6 +34,7 @@ public class Server implements ITimeoutEventHandler {
 	private Map<Integer, Task> tasks;
 
 	private static boolean keepAlive = true;
+	private static int RANDOM_SEQ = 25;
 
 	public Server(int portArg) {
 		this.port = portArg;
@@ -64,12 +65,12 @@ public class Server implements ITimeoutEventHandler {
 	
 	private void handlePacket(DatagramPacket packet) {
 		byte[] pkt = packet.getData();
-		int taskId = Header.twoBytes2dec(pkt[0],pkt[1]);
-		int checksum = Header.twoBytes2dec(pkt[2],pkt[3]);
-		int seqNo = Header.twoBytes2dec(pkt[4],pkt[5]);
-		int ackNo = Header.twoBytes2dec(pkt[6],pkt[7]);
+		int taskId = Header.twoBytes2int(pkt[0],pkt[1]);
+		int checksum = Header.twoBytes2int(pkt[2],pkt[3]);
+		int seqNo = Header.twoBytes2int(pkt[4],pkt[5]);
+		int ackNo = Header.twoBytes2int(pkt[6],pkt[7]);
 		byte flags = pkt[8];
-		int windowSize = Header.twoBytes2dec(pkt[10],pkt[11]);
+		int windowSize = Header.twoBytes2int(pkt[10],pkt[11]);
 		byte[] data; 
 		
 		//only REQ_UP has extra header that contains the size of the file the client wants to upload
@@ -94,7 +95,7 @@ public class Server implements ITimeoutEventHandler {
 			Task t = new Task(Task.Type.DOWNLOAD, new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
 			tasks.put(t.getTaskId(), t);
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP) {
-			int fileSize = Header.fourBytes2dec(pkt[12], pkt[13], pkt[14], pkt[15]);
+			int fileSize = Header.fourBytes2int(pkt[12], pkt[13], pkt[14], pkt[15]);
 			System.out.println("File has size " + fileSize + " bytes!");
 			//TODO check if enough space
 			
@@ -103,14 +104,17 @@ public class Server implements ITimeoutEventHandler {
 			
 			Task t = new Task(Task.Type.DOWNLOAD, "output"+fileName, sock, packet.getAddress(), packet.getPort(), fileSize);
 			tasks.put(t.getTaskId(), t);
-			byte[] header = Header.ftp(t.getTaskId(), 3, seqNo + 1, Config.ACK | Config.REQ_UP, 0xffffffff);
+			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo + 1, Config.ACK | Config.REQ_UP, 0xffffffff);
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
 		} else if ((flags & Config.UP) == Config.UP) {
-			//TODO store file contents
-			
 			Task t = tasks.get(taskId);
 			t.addContent(seqNo, data);
 //			getNetworkLayer().sendPacket(ack);
+			
+			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo + data.length, Config.ACK | Config.UP, 0xffffffff);
+			this.sendPacket(header, packet.getAddress(), packet.getPort());
+//			this.sendPacket(packet, addr, windowSize);
+			
 		} else if ((flags & Config.DOWN) == Config.DOWN) {
 		} else if ((flags & Config.STATS) == Config.STATS) {
 		}

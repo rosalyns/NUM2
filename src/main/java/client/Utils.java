@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -47,7 +48,6 @@ public class Utils {
      * @return the array of integers, representing the contents of the file to transmit
      */
     public static Integer[] getFileContents(String fileName) {
-    	System.out.println("trying to find file " + fileName);
         File fileToTransmit = new File(String.format(fileName));
         try (FileInputStream fileStream = new FileInputStream(fileToTransmit)) {
             Integer[] fileContents = new Integer[(int) fileToTransmit.length()];
@@ -74,6 +74,24 @@ public class Utils {
      */
     public static int getFileSize(String fileName) {
     		return (int) new File(String.format(fileName)).length();
+    }
+    
+    /**
+     * Merge arrays
+     */
+    public static byte[] mergeArrays(byte[]... arrays) {
+    		byte[] first = arrays[0];
+    	
+    		for (int i = 1; i < arrays.length; i++) {
+    			byte[] toAppend = arrays[i];
+    			
+    			int oldlength = first.length;
+    			int extralen = toAppend.length;
+    			first = Arrays.copyOf(first, oldlength + extralen);
+    			System.arraycopy(toAppend, 0, first, oldlength, extralen);
+    		}
+    		
+    		return first;
     }
 
     /**

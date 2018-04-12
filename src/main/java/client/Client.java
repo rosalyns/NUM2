@@ -64,12 +64,12 @@ public class Client implements ITimeoutEventHandler {
 	
 	private void handlePacket(DatagramPacket packet) {
 		byte[] pkt = packet.getData();
-		int taskId = Header.twoBytes2dec(pkt[0],pkt[1]);
-		int checksum = Header.twoBytes2dec(pkt[2],pkt[3]);
-		int seqNo = Header.twoBytes2dec(pkt[4],pkt[5]);
-		int ackNo = Header.twoBytes2dec(pkt[6],pkt[7]);
+		int taskId = Header.twoBytes2int(pkt[0],pkt[1]);
+		int checksum = Header.twoBytes2int(pkt[2],pkt[3]);
+		int seqNo = Header.twoBytes2int(pkt[4],pkt[5]);
+		int ackNo = Header.twoBytes2int(pkt[6],pkt[7]);
 		byte flags = pkt[8];
-		int windowSize = Header.twoBytes2dec(pkt[10],pkt[11]);
+		int windowSize = Header.twoBytes2int(pkt[10],pkt[11]);
 		
 		System.out.println("[Server] Packet received from " + packet.getSocketAddress() 
 		+ " :\ntaskID: "  + taskId 
@@ -137,13 +137,10 @@ public class Client implements ITimeoutEventHandler {
 		int sequenceNumber = 3; //TODO think about seqNo
 		int fileSize = Utils.getFileSize(fileName);
 		
-		byte[] pkt = new byte[Config.HEADERSIZE + Config.UP_HEADERSIZE + fileName.length()];
 		byte[] header = Header.ftp(0,sequenceNumber, 0,Config.REQ_UP, 0xffffffff);
 		byte[] upHeader = Header.upload(fileSize);
+		byte[] pkt = Utils.mergeArrays(header, upHeader, fileName.getBytes());
 		System.out.println("Sending packet with seq_no " + sequenceNumber + " and fileSize " + fileSize);
-		System.arraycopy(header, 0, pkt, 0, Config.HEADERSIZE);
-		System.arraycopy(upHeader, 0, pkt, Config.HEADERSIZE, Config.UP_HEADERSIZE);
-		System.arraycopy(fileName.getBytes(), 0, pkt, Config.HEADERSIZE + Config.UP_HEADERSIZE, fileName.length());
 		
 		Task newTask = new Task(Task.Type.UPLOAD, fileName, sock, host, port, fileSize);
 		requestedUps.add(newTask);
