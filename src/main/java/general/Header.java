@@ -34,7 +34,7 @@ public class Header {
 		header[14] = ack[2];
 		header[15] = ack[3];
 		
-		//flags: req_upload/upload/req_download/download/stats/ACK
+		//flags: req_upload/upload/req_download/download/stats/ACK/pause
 		header[16] = (byte) flags;
 		header[17] = 0x00;
 		header[18] = 0x00;

@@ -107,35 +107,6 @@ public class TUI implements Runnable {
 		}
 	}
 
-	public void showChatMessage(String playerName, String message) {
-		print(playerName + ": " + message);
-	}
-
-	public void showChallengedBy(String playerName) {
-		print("You have been challenged by " + playerName + ". ACCEPT or DECLINE?");
-	}
-
-	public void showChallengeDeclined(String playerName) {
-		print(playerName + " declined your challenge.");
-	}
-
-	public void showPass(String playerName) {
-		print(playerName + " passed.");
-	}
-	
-	public void showInvalidMove() {
-		print("This is not a valid move. Try again.");
-	}
-	
-	public void showNotYourTurn() {
-		print("Wait till it is your turn.");
-	}
-
-	public void showError(String type, String message) {
-		//print("[Server] ERROR ");
-		
-	}
-
 	public void showMenu() {
 		print(menuText);
 	}
