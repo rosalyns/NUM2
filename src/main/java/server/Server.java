@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 import client.ITimeoutEventHandler;
 import client.Utils;
@@ -31,13 +31,13 @@ public class Server implements ITimeoutEventHandler {
 
 	private int port;
 	private DatagramSocket sock;
-	private List<Task> tasks;
+	private Map<Integer, Task> tasks;
 
 	private static boolean keepAlive = true;
 
 	public Server(int portArg) {
 		this.port = portArg;
-		this.tasks = new ArrayList<Task>();
+		this.tasks = new HashMap<Integer, Task>();
 	}
 
 	public void run() throws IOException {
@@ -92,22 +92,25 @@ public class Server implements ITimeoutEventHandler {
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN) {
 			int fileSize = Utils.getFileSize(new String(data));
 			Task t = new Task(Task.Type.DOWNLOAD, new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
-			tasks.add(t);
+			tasks.put(t.getTaskId(), t);
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP) {
 			int fileSize = Header.fourBytes2dec(pkt[12], pkt[13], pkt[14], pkt[15]);
 			System.out.println("File has size " + fileSize + " bytes!");
 			//TODO check if enough space
 			
-			String filename = new String(data);
+			String fileName = new String(data);
 			//TODO something with filename
 			
-			Task t = new Task(Task.Type.UPLOAD, "output"+filename, sock, packet.getAddress(), packet.getPort(), fileSize);
-			tasks.add(t);
+			Task t = new Task(Task.Type.DOWNLOAD, "output"+fileName, sock, packet.getAddress(), packet.getPort(), fileSize);
+			tasks.put(t.getTaskId(), t);
 			byte[] header = Header.ftp(t.getTaskId(), 3, seqNo + 1, Config.ACK | Config.REQ_UP, 0xffffffff);
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
 		} else if ((flags & Config.UP) == Config.UP) {
 			//TODO store file contents
 			
+			Task t = tasks.get(taskId);
+			t.addContent(seqNo, data);
+//			getNetworkLayer().sendPacket(ack);
 		} else if ((flags & Config.DOWN) == Config.DOWN) {
 		} else if ((flags & Config.STATS) == Config.STATS) {
 		}

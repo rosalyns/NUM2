@@ -47,6 +47,7 @@ public class Utils {
      * @return the array of integers, representing the contents of the file to transmit
      */
     public static Integer[] getFileContents(String fileName) {
+    	System.out.println("trying to find file " + fileName);
         File fileToTransmit = new File(String.format(fileName));
         try (FileInputStream fileStream = new FileInputStream(fileToTransmit)) {
             Integer[] fileContents = new Integer[(int) fileToTransmit.length()];

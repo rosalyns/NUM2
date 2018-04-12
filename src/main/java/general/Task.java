@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.Arrays;
 
 import client.ITimeoutEventHandler;
 import client.Utils;
@@ -16,16 +17,17 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	}
 
 	private int id;
-	private String fileName;
+//	private String fileName;
 	private Task.Type type;
 	private DatagramSocket sock;
 	private InetAddress addr;
 	private int port;
 	private byte[] file;
+	private byte[][] storedPackets;
 	private int totalFileSize;
 
 	public Task(Task.Type type, String fileName, DatagramSocket sock, InetAddress addr, int port, int fileSize) {
-		this.fileName = fileName;
+//		this.fileName = fileName;
 		this.type = type;
 		this.sock = sock;
 		this.addr = addr;
@@ -40,6 +42,11 @@ public class Task extends Thread implements ITimeoutEventHandler {
 			for (int i = 0; i < fileContents.length; i++) {
 				file[i] = (byte) (int)fileContents[i];
 			}
+		} else if (type == Task.Type.DOWNLOAD) {
+			storedPackets = new byte[Config.K][Config.DATASIZE];
+			Arrays.fill(storedPackets, null);
+			file = new byte[0];
+			
 		}
 	}
 
@@ -49,15 +56,15 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	private int datalen = -1;
 	private int sequenceNumber = 0;
 	private boolean[] ackedPackets = new boolean[Config.K];
-	private boolean lastPacketSent = false;
+	private boolean lastPacket = false;
 	private boolean canSendAgain = false;
 
 	@Override
 	public void run() {
-		while (!lastPacketSent) {
+		while (!lastPacket) {
 			while (offset < file.length && inSendingWindow(sequenceNumber)) {
 				datalen = Math.min(Config.DATASIZE, file.length - offset);
-				lastPacketSent = datalen < Config.DATASIZE;
+				lastPacket = datalen < Config.DATASIZE;
 
 				byte[] pkt = new byte[Config.HEADERSIZE + datalen];
 				byte[] header = Header.ftp(0, sequenceNumber, 0, Config.UP, 0xffffffff);
@@ -85,10 +92,10 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		}
 	}
 
-	private DatagramPacket getEmptyPacket() {
-		byte[] data = new byte[Config.HEADERSIZE + Config.DATASIZE];
-		return new DatagramPacket(data, data.length);
-	}
+//	private DatagramPacket getEmptyPacket() {
+//		byte[] data = new byte[Config.HEADERSIZE + Config.DATASIZE];
+//		return new DatagramPacket(data, data.length);
+//	}
 
 	private void sendPacket(byte[] packet) {
 		try {
@@ -138,6 +145,38 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		}
 	}
 	
+	public void addContent(int seqNo, byte[] data) {
+		if (seqNo == nextReceivingPacket()) {
+			int oldlength = file.length;
+			int datalen = data.length;
+			file = Arrays.copyOf(file, oldlength + datalen);
+			System.arraycopy(data, 0, file, oldlength, datalen);
+			System.out.println("added " + seqNo + " to filecontent.");
+			if (file.length == this.totalFileSize) {	// means COMPLETE
+				lastPacket = true;
+				System.out.println("finished file..");
+			}
+			LFR++;
+		} else if (inReceivingWindow(seqNo)) {
+			storedPackets[seqNo] = data;
+		}
+		
+		while (storedPackets[nextReceivingPacket()] != null) {
+			int oldlength = file.length;
+			int datalen = storedPackets[nextReceivingPacket()].length;
+			file = Arrays.copyOf(file, oldlength + datalen);
+			System.arraycopy(storedPackets[nextReceivingPacket()], 0, file, oldlength, datalen);
+			System.out.println("added " + nextReceivingPacket() + " to filecontent.");
+			
+			if (file.length == this.totalFileSize) {	// means COMPLETE
+				lastPacket = true;
+				System.out.println("finished file..");
+			}
+			storedPackets[nextReceivingPacket()] = null;
+			LFR++;
+		}
+	}
+	
 	@Override
 	public void TimeoutElapsed(Object tag) {
 		int numberPacketSent = ((byte[]) tag)[0];
@@ -159,7 +198,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	}
 
 	public boolean finished() {
-		return this.lastPacketSent;
+		return this.lastPacket;
 	}
 
 }
