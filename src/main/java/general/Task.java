@@ -28,13 +28,12 @@ public class Task extends Thread implements ITimeoutEventHandler {
 
 	public Task(Task.Type type, String fileName, DatagramSocket sock, InetAddress addr, int port, int fileSize) {
 //		this.fileName = fileName;
+		this.setName(fileName);
 		this.type = type;
 		this.sock = sock;
 		this.addr = addr;
 		this.port = port;
 		this.totalFileSize = fileSize;
-		this.id = ID;
-		ID++;
 		
 		if(type == Task.Type.UPLOAD) {
 			Integer[] fileContents = Utils.getFileContents(fileName);
@@ -66,15 +65,15 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				datalen = Math.min(Config.DATASIZE, file.length - offset);
 				lastPacket = datalen < Config.DATASIZE;
 
-				byte[] pkt = new byte[Config.HEADERSIZE + datalen];
-				byte[] header = Header.ftp(0, sequenceNumber, 0, Config.UP, 0xffffffff);
+				byte[] header = Header.ftp(this.id, sequenceNumber, 0, Config.UP, 0xffffffff);
+				byte[] data = new byte[datalen];
+				System.arraycopy(file, offset, data, 0, datalen);
+				byte[] pkt = Utils.mergeArrays(header, data);
+				sendPacket(pkt);
+				
 				System.out.println("Sending packet with seq_no " + sequenceNumber);
-
-				System.arraycopy(header, 0, pkt, 0, Config.HEADERSIZE);
-				System.arraycopy(file, offset, pkt, Config.HEADERSIZE, datalen);
 				sequenceNumber = (sequenceNumber + 1) % Config.K;
 				offset += datalen;
-				sendPacket(pkt);
 
 				try {
 					Thread.sleep(1000);
@@ -96,6 +95,10 @@ public class Task extends Thread implements ITimeoutEventHandler {
 //		byte[] data = new byte[Config.HEADERSIZE + Config.DATASIZE];
 //		return new DatagramPacket(data, data.length);
 //	}
+	
+	public void setId(int id) {
+		this.id = id;
+	}
 
 	private void sendPacket(byte[] packet) {
 		try {
@@ -129,7 +132,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	}
 
 	public void acked(int ackNo) {
-		System.out.println("ACK" + ackNo + " received.");
+		System.out.println("ACK " + ackNo + " received.");
 		if (ackNo == nextAckPacket()) {
 			LAR = ackNo;
 			canSendAgain = true;

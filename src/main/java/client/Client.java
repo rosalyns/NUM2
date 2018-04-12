@@ -90,21 +90,20 @@ public class Client implements ITimeoutEventHandler {
 			System.out.println("REQ_DOWN + ACK");
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP && (flags & Config.ACK) == Config.ACK) {
 			if (!requestedUps.isEmpty()) {
-				Task task = requestedUps.poll();
-				tasks.put(taskId, task);
-				task.start();
+				Task t = requestedUps.poll();
+				t.setId(taskId);
+				tasks.put(t.getTaskId(), t);
+				t.start();
 			}
 			System.out.println("REQ_UP + ACK");
 		} else if ((flags & Config.UP) == Config.UP && (flags & Config.ACK) == Config.ACK) {
-			System.out.println("Packet has UP flag set");
 			Task task = tasks.get(taskId);
 			task.acked(ackNo);
 			System.out.println("UP + ACK");
 		} else if ((flags & Config.DOWN) == Config.DOWN) {
-			System.out.println("Packet has DOWN flag set");
 			//TODO store file contents
 			
-			byte[] header = Header.ftp(taskId, 3, seqNo + data.length, Config.ACK | Config.DOWN, 0xffffffff);//TODO send correct ackNo (% K)
+			byte[] header = Header.ftp(taskId, 3, seqNo + 1, Config.ACK | Config.DOWN, 0xffffffff);//TODO send correct ackNo (% K)
 			this.sendPacket(header);
 			System.out.println("DOWN");
 		} else if ((flags & Config.STATS) == Config.STATS) {

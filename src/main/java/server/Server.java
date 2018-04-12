@@ -32,6 +32,7 @@ public class Server implements ITimeoutEventHandler {
 	private int port;
 	private DatagramSocket sock;
 	private Map<Integer, Task> tasks;
+	private int currentTaskId = 1;
 
 	private static boolean keepAlive = true;
 	private static int RANDOM_SEQ = 25;
@@ -92,8 +93,12 @@ public class Server implements ITimeoutEventHandler {
 		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN) {
 			int fileSize = Utils.getFileSize(new String(data));
+			
 			Task t = new Task(Task.Type.DOWNLOAD, new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
+			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
+			currentTaskId++;
+			
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP) {
 			int fileSize = Header.fourBytes2int(pkt[12], pkt[13], pkt[14], pkt[15]);
 			System.out.println("File has size " + fileSize + " bytes!");
@@ -103,7 +108,10 @@ public class Server implements ITimeoutEventHandler {
 			//TODO something with filename
 			
 			Task t = new Task(Task.Type.DOWNLOAD, "output"+fileName, sock, packet.getAddress(), packet.getPort(), fileSize);
+			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
+			currentTaskId++;
+			
 			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo + 1, Config.ACK | Config.REQ_UP, 0xffffffff);
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
 		} else if ((flags & Config.UP) == Config.UP) {
@@ -111,7 +119,7 @@ public class Server implements ITimeoutEventHandler {
 			t.addContent(seqNo, data);
 //			getNetworkLayer().sendPacket(ack);
 			
-			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo + data.length, Config.ACK | Config.UP, 0xffffffff);
+			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo + 1, Config.ACK | Config.UP, 0xffffffff);
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
 //			this.sendPacket(packet, addr, windowSize);
 			
