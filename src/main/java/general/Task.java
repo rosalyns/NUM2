@@ -15,22 +15,22 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		DOWNLOAD, UPLOAD
 	}
 
-	private boolean finished;
 	private int id;
-	private int offset;
 	private String fileName;
 	private Task.Type type;
 	private DatagramSocket sock;
 	private InetAddress addr;
 	private int port;
 	private byte[] file;
+	private int totalFileSize;
 
-	public Task(Task.Type type, String fileName, DatagramSocket sock, InetAddress addr, int port) {
+	public Task(Task.Type type, String fileName, DatagramSocket sock, InetAddress addr, int port, int fileSize) {
 		this.fileName = fileName;
 		this.type = type;
 		this.sock = sock;
 		this.addr = addr;
 		this.port = port;
+		this.totalFileSize = fileSize;
 		this.id = ID;
 		ID++;
 		
@@ -45,28 +45,28 @@ public class Task extends Thread implements ITimeoutEventHandler {
 
 	private int LAR = -1;
 	private int LFR = -1;
-	private int filePointer = 0;
+	private int offset = 0;
 	private int datalen = -1;
 	private int sequenceNumber = 0;
 	private boolean[] ackedPackets = new boolean[Config.K];
-	private boolean lastPacket = false;
+	private boolean lastPacketSent = false;
 	private boolean canSendAgain = false;
 
 	@Override
 	public void run() {
-		while (!lastPacket) {
-			while (filePointer < file.length && inSendingWindow(sequenceNumber)) {
-				datalen = Math.min(Config.DATASIZE, file.length - filePointer);
-				lastPacket = datalen < Config.DATASIZE;
+		while (!lastPacketSent) {
+			while (offset < file.length && inSendingWindow(sequenceNumber)) {
+				datalen = Math.min(Config.DATASIZE, file.length - offset);
+				lastPacketSent = datalen < Config.DATASIZE;
 
 				byte[] pkt = new byte[Config.HEADERSIZE + datalen];
 				byte[] header = Header.ftp(0, sequenceNumber, 0, Config.UP, 0xffffffff);
 				System.out.println("Sending packet with seq_no " + sequenceNumber);
 
 				System.arraycopy(header, 0, pkt, 0, Config.HEADERSIZE);
-				System.arraycopy(file, filePointer, pkt, Config.HEADERSIZE, datalen);
+				System.arraycopy(file, offset, pkt, Config.HEADERSIZE, datalen);
 				sequenceNumber = (sequenceNumber + 1) % Config.K;
-				filePointer += datalen;
+				offset += datalen;
 				sendPacket(pkt);
 
 				try {
@@ -154,12 +154,12 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		return this.type;
 	}
 	
-	public int getFileSize() {
-		return this.file.length;
+	public int getTotalFileSize() {
+		return this.totalFileSize;
 	}
 
 	public boolean finished() {
-		return this.finished;
+		return this.lastPacketSent;
 	}
 
 }

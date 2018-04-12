@@ -66,6 +66,14 @@ public class Utils {
             return null;
         }
     }
+    
+    /**
+     * Gets the size of the specified file.
+     * 
+     */
+    public static int getFileSize(String fileName) {
+    		return (int) new File(String.format(fileName)).length();
+    }
 
     /**
      * Writes the contents of the fileContents array to the specified file.

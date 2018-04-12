@@ -134,19 +134,22 @@ public class Client implements ITimeoutEventHandler {
 	}
 	
 	public void uploadFile(String fileName) {
-		Task newTask = new Task(Task.Type.UPLOAD, fileName, sock, host, port);
-		requestedUps.add(newTask);
-		
 		int sequenceNumber = 3; //TODO think about seqNo
+		int fileSize = Utils.getFileSize(fileName);
+		
 		byte[] pkt = new byte[Config.HEADERSIZE + Config.UP_HEADERSIZE + fileName.length()];
 		byte[] header = Header.ftp(0,sequenceNumber, 0,Config.REQ_UP, 0xffffffff);
-		byte[] upHeader = Header.upload(newTask.getFileSize());
-		System.out.println("Sending packet with seq_no " + sequenceNumber + " and fileSize " + newTask.getFileSize());
+		byte[] upHeader = Header.upload(fileSize);
+		System.out.println("Sending packet with seq_no " + sequenceNumber + " and fileSize " + fileSize);
 		System.arraycopy(header, 0, pkt, 0, Config.HEADERSIZE);
 		System.arraycopy(upHeader, 0, pkt, Config.HEADERSIZE, Config.UP_HEADERSIZE);
 		System.arraycopy(fileName.getBytes(), 0, pkt, Config.HEADERSIZE + Config.UP_HEADERSIZE, fileName.length());
-		sequenceNumber = (sequenceNumber + 1) % Config.K;
+		
+		Task newTask = new Task(Task.Type.UPLOAD, fileName, sock, host, port, fileSize);
+		requestedUps.add(newTask);
+		
 		sendPacket(pkt);
+		sequenceNumber = (sequenceNumber + 1) % Config.K;
 	}
 	
 	private DatagramPacket getEmptyPacket() {

@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import client.ITimeoutEventHandler;
+import client.Utils;
 import general.Config;
 import general.Header;
 import general.Task;
@@ -69,6 +70,16 @@ public class Server implements ITimeoutEventHandler {
 		int ackNo = Header.twoBytes2dec(pkt[6],pkt[7]);
 		byte flags = pkt[8];
 		int windowSize = Header.twoBytes2dec(pkt[10],pkt[11]);
+		byte[] data; 
+		
+		//only REQ_UP has extra header that contains the size of the file the client wants to upload
+		if ((flags & Config.REQ_UP)==Config.REQ_UP) {
+			data = new byte[pkt.length - Config.HEADERSIZE - Config.UP_HEADERSIZE];
+			System.arraycopy(pkt, Config.HEADERSIZE+Config.UP_HEADERSIZE, data, 0, pkt.length - Config.HEADERSIZE - Config.UP_HEADERSIZE);
+		} else {
+			data = new byte[pkt.length - Config.HEADERSIZE];
+			System.arraycopy(pkt, Config.HEADERSIZE, data, 0, pkt.length - Config.HEADERSIZE);
+		}
 		
 		System.out.println("[Server] Packet received from " + packet.getSocketAddress() 
 		+ " :\ntaskID: "  + taskId 
@@ -78,15 +89,11 @@ public class Server implements ITimeoutEventHandler {
 		+ "\nflags: " + Integer.toBinaryString(flags) 
 		+ "\nwindowSize: " + windowSize);
 		
-		byte[] data = new byte[pkt.length - Config.HEADERSIZE - Config.UP_HEADERSIZE];
-		System.arraycopy(pkt, Config.HEADERSIZE+Config.UP_HEADERSIZE, data, 0, pkt.length - Config.HEADERSIZE - Config.UP_HEADERSIZE);
-		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN) {
-			System.out.println("Packet has REQ_DOWN flag set");
-			tasks.add(new Task(Task.Type.DOWNLOAD, new String(data), sock, packet.getAddress(), packet.getPort()));
+			int fileSize = Utils.getFileSize(new String(data));
+			Task t = new Task(Task.Type.DOWNLOAD, new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
+			tasks.add(t);
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP) {
-			System.out.println("Packet has REQ_UP flag set");
-			
 			int fileSize = Header.fourBytes2dec(pkt[12], pkt[13], pkt[14], pkt[15]);
 			System.out.println("File has size " + fileSize + " bytes!");
 			//TODO check if enough space
@@ -94,9 +101,9 @@ public class Server implements ITimeoutEventHandler {
 			String filename = new String(data);
 			//TODO something with filename
 			
-			Task newTask = new Task(Task.Type.UPLOAD, filename, sock, packet.getAddress(), packet.getPort());
-			tasks.add(newTask);
-			byte[] header = Header.ftp(newTask.getTaskId(), 3, seqNo + 1, Config.ACK | Config.REQ_UP, 0xffffffff);
+			Task t = new Task(Task.Type.UPLOAD, "output"+filename, sock, packet.getAddress(), packet.getPort(), fileSize);
+			tasks.add(t);
+			byte[] header = Header.ftp(t.getTaskId(), 3, seqNo + 1, Config.ACK | Config.REQ_UP, 0xffffffff);
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
 		} else if ((flags & Config.UP) == Config.UP) {
 			//TODO store file contents
