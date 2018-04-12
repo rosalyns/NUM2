@@ -23,6 +23,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	private DatagramSocket sock;
 	private InetAddress addr;
 	private int port;
+	private byte[] file;
 
 	public Task(Task.Type type, String fileName, DatagramSocket sock, InetAddress addr, int port) {
 		this.fileName = fileName;
@@ -32,6 +33,14 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		this.port = port;
 		this.id = ID;
 		ID++;
+		
+		if(type == Task.Type.UPLOAD) {
+			Integer[] fileContents = Utils.getFileContents(fileName);
+			file = new byte[fileContents.length];
+			for (int i = 0; i < fileContents.length; i++) {
+				file[i] = (byte) (int)fileContents[i];
+			}
+		}
 	}
 
 	private int LAR = -1;
@@ -45,12 +54,6 @@ public class Task extends Thread implements ITimeoutEventHandler {
 
 	@Override
 	public void run() {
-		Integer[] fileContents = Utils.getFileContents(fileName);
-		byte[] file = new byte[fileContents.length];
-		for (int i = 0; i < fileContents.length; i++) {
-			file[i] = (byte) (int)fileContents[i];
-		}
-		
 		while (!lastPacket) {
 			while (filePointer < file.length && inSendingWindow(sequenceNumber)) {
 				datalen = Math.min(Config.DATASIZE, file.length - filePointer);
@@ -143,12 +146,16 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		}
 	}
 
-	public int id() {
+	public int getTaskId() {
 		return this.id;
 	}
 
-	public Task.Type type() {
-		return this.type();
+	public Task.Type getType() {
+		return this.type;
+	}
+	
+	public int getFileSize() {
+		return this.file.length;
 	}
 
 	public boolean finished() {

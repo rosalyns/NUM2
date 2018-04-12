@@ -5,6 +5,10 @@
 
 
 
+Situaties:
+
+- upload: wanneer is file klaar? Als laatste ack binnen is? nu: als pakketje korter is dan normaal is het de laatste
+- download: wanneer is file klaar? Je weet geen filesize. flag?
 
 
 

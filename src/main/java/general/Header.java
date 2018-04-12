@@ -8,68 +8,74 @@ public class Header {
 		byte[] header = new byte[Config.HEADERSIZE];
 
 		//task_id
-		byte[] task = dec2fourBytes(taskId);
+		byte[] task = dec2twoBytes(taskId);
 		header[0] = task[0];
 		header[1] = task[1];
-		header[2] = task[2];
-		header[3] = task[3];
 		
 		//checksum
-		header[4] = 0x00;
-		header[5] = 0x00;
-		header[6] = 0x00;
-		header[7] = 0x00;
+		header[2] = 0x00;
+		header[3] = 0x00;
 		
 		//seq_number
-		byte[] seq = dec2fourBytes(seqNo);
-		header[8] = seq[0];
-		header[9] = seq[1];
-		header[10] = seq[2];
-		header[11] = seq[3];
+		byte[] seq = dec2twoBytes(seqNo);
+		header[4] = seq[0];
+		header[5] = seq[1];
 		
 		//ack_number
-		byte[] ack = dec2fourBytes(ackNo);
-		header[12] = ack[0];
-		header[13] = ack[1];
-		header[14] = ack[2];
-		header[15] = ack[3];
+		byte[] ack = dec2twoBytes(ackNo);
+		header[6] = ack[0];
+		header[7] = ack[1];
 		
 		//flags: req_upload/upload/req_download/download/stats/ACK/pause
-		header[16] = (byte) flags;
-		header[17] = 0x00;
-		header[18] = 0x00;
-		header[19] = 0x00;
+		header[8] = (byte) flags;
+		header[9] = seq[1];
 		
 		//window_size
-		byte[] window = dec2fourBytes(windowSize);
-		header[20] = window[0];
-		header[21] = window[1];
-		header[22] = window[2];
-		header[23] = window[3];
+		byte[] window = dec2twoBytes(windowSize);
+		header[10] = window[0];
+		header[11] = window[1];
 		
 		return header;
 	}
 	
-	public static byte[] upload() {
-		return new byte[8];
+	public static byte[] upload(int fileSize) {
+		byte[] header = new byte[4];
+		
+		byte[] size = dec2fourBytes(fileSize);
+		header[0] = size[0];
+		header[1] = size[1];
+		header[2] = size[2];
+		header[3] = size[3];
+		
+		System.out.println("UP_HEADER: byte1 "+ size[0] + " byte2 " + size[1] + " byte3 " + size[2] + " byte4 " + size[3]);
+		return header;
+	}
+	
+	public static byte[] dec2twoBytes(int no) {
+		byte[] bytes = new byte[2];
+		bytes[0] = (byte) (no >> 8);
+		bytes[1] = (byte) no;
+		return bytes;
 	}
 	
 	public static byte[] dec2fourBytes(int no) {
-		byte[] seqBytes = new byte[4];
-		seqBytes[0] = (byte) (no >> 24);
-		seqBytes[1] = (byte) (no >> 16);
-		seqBytes[2] = (byte) (no >> 8);
-		seqBytes[3] = (byte) no;
-		return seqBytes;
+		byte[] bytes = new byte[4];
+		bytes[0] = (byte) ((no >> 24) & 0xFF);
+		bytes[1] = (byte) ((no >> 16) & 0xFF);
+		bytes[2] = (byte) ((no >> 8) & 0xFF);
+		bytes[3] = (byte) (no & 0xFF);
+		return bytes;
 	}
 	
-	public static int fourBytes2dec(int a, int b, int c, int d) {
-		int seq = 0;
-		seq = a << 24;
-		seq += b << 16;
-		seq += c << 8;
-		seq += d;
-		return seq;
+	public static int fourBytes2dec(byte a, byte b, byte c, byte d) {
+		return ((a & 0xFF) << 24) | ((b & 0xFF) << 16) | ((c & 0xFF) << 8) | (d & 0xFF);
+	}
+	
+	public static int twoBytes2dec(int a, int b) {
+		int result = 0;
+		result = a << 8;
+		result += b;
+		return result;
 	}
 	
 }
