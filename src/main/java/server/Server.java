@@ -78,8 +78,8 @@ public class Server implements ITimeoutEventHandler {
 		+ "\nflags: " + Integer.toBinaryString(flags) 
 		+ "\nwindowSize: " + windowSize);
 		
-		byte[] data = new byte[pkt.length - Config.HEADERSIZE];
-		System.arraycopy(pkt, Config.HEADERSIZE, data, 0, pkt.length - Config.HEADERSIZE);
+		byte[] data = new byte[pkt.length - Config.HEADERSIZE - Config.UP_HEADERSIZE];
+		System.arraycopy(pkt, Config.HEADERSIZE+Config.UP_HEADERSIZE, data, 0, pkt.length - Config.HEADERSIZE - Config.UP_HEADERSIZE);
 		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN) {
 			System.out.println("Packet has REQ_DOWN flag set");
@@ -89,9 +89,12 @@ public class Server implements ITimeoutEventHandler {
 			
 			int fileSize = Header.fourBytes2dec(pkt[12], pkt[13], pkt[14], pkt[15]);
 			System.out.println("File has size " + fileSize + " bytes!");
+			//TODO check if enough space
 			
-			//check if enough space
-			Task newTask = new Task(Task.Type.UPLOAD, "file1.png", sock, packet.getAddress(), packet.getPort());
+			String filename = new String(data);
+			//TODO something with filename
+			
+			Task newTask = new Task(Task.Type.UPLOAD, filename, sock, packet.getAddress(), packet.getPort());
 			tasks.add(newTask);
 			byte[] header = Header.ftp(newTask.getTaskId(), 3, seqNo + 1, Config.ACK | Config.REQ_UP, 0xffffffff);
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
