@@ -5,6 +5,7 @@ Situaties:
 	-> veranderd naar als file evengroot is als vantevoren gezegd.
 - download: wanneer is file klaar? Je weet geen filesize. flag?
 - als je niet met seqNo = 0 begint aan receiver kant, verwacht ie dat niet als eerste pakketje. (LFR = -1 aan het begin) voeg boolean first toe? 
+	-> FIRST_PACKET nummer toegevoegd in Config
 
 
 

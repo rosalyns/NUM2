@@ -123,30 +123,30 @@ public class Utils {
         private static boolean started = false;
         private static ReentrantLock lock = new ReentrantLock();
 
-        /**
-         * Starts the helper thread
-         */
-        public static void Start() {
-            if (started)
-                throw new IllegalStateException("Already started");
-            started = true;
-            eventTriggerThread = new Thread(new Timeout());
-            eventTriggerThread.start();
-        }
-
-        /**
-         * Stops the helper thread
-         */
-        public static void Stop() {
-            if (!started)
-                throw new IllegalStateException(
-                        "Not started or already stopped");
-            eventTriggerThread.interrupt();
-            try {
-                eventTriggerThread.join();
-            } catch (InterruptedException e) {
-            }
-        }
+//        /**
+//         * Starts the helper thread
+//         */
+//        public static void Start() {
+//            if (started)
+//                throw new IllegalStateException("Already started");
+//            started = true;
+//            eventTriggerThread = new Thread(new Timeout());
+//            eventTriggerThread.start();
+//        }
+//
+//        /**
+//         * Stops the helper thread
+//         */
+//        public static void Stop() {
+//            if (!started)
+//                throw new IllegalStateException(
+//                        "Not started or already stopped");
+//            eventTriggerThread.interrupt();
+//            try {
+//                eventTriggerThread.join();
+//            } catch (InterruptedException e) {
+//            }
+//        }
 
         /**
          * Set a timeout

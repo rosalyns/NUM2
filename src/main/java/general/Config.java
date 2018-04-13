@@ -7,7 +7,7 @@ public class Config {
 	//parameters
 	public static final int HEADERSIZE = 12; // number of header bytes in each packet
 	public static final int UP_HEADERSIZE = 4;
-	public static final int DATASIZE = 128; // max. number of user data bytes in each packet
+	public static final int DATASIZE = 2048; // max. number of user data bytes in each packet
 //	static final int K = 0xffffffff;
 	public static final int K = 100;
 	public static final int SWS = 25;

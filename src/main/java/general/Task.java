@@ -106,7 +106,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		client.Utils.Timeout.SetTimeout(1000, this, packet);
+		client.Utils.Timeout.SetTimeout(3000, this, packet);
 	}
 
 	private boolean inSendingWindow(int packetNumber) {
@@ -160,7 +160,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				lastPacket = true;
 				System.out.println("finished file..");
 				
-//				Utils.setFileContents(file, fileName);
+				Utils.setFileContents(file, fileName);
 			}
 			LFR++;
 		} else if (inReceivingWindow(seqNo)) {
@@ -174,7 +174,8 @@ public class Task extends Thread implements ITimeoutEventHandler {
 			if (file.length == this.totalFileSize) {	// means COMPLETE
 				lastPacket = true;
 				System.out.println("finished file..");
-				//TODO actually setContents in the file
+
+				Utils.setFileContents(file, fileName);
 			}
 			storedPackets[nextExpectedPacket()] = null;
 			LFR++;
@@ -183,9 +184,11 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	
 	@Override
 	public void TimeoutElapsed(Object tag) {
-		int numberPacketSent = ((byte[]) tag)[0];
-		if (inSendingWindow(numberPacketSent) && !receivedAck(numberPacketSent)) {
-			sendPacket((byte[]) tag);
+		byte[] pkt = (byte[]) tag;
+		
+		int seqNo = Header.twoBytes2int(pkt[4],pkt[5]);
+		if (inSendingWindow(seqNo) && !receivedAck(seqNo + 1)) {
+			sendPacket(pkt);
 		}
 	}
 

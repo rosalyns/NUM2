@@ -107,8 +107,6 @@ public class Server implements ITimeoutEventHandler {
 			//TODO check if enough space
 			
 			String fileName = new String(data);
-			//TODO something with filename
-			
 			Task t = new Task(Task.Type.STORE_FILE, "output"+fileName, sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
@@ -119,11 +117,9 @@ public class Server implements ITimeoutEventHandler {
 		} else if ((flags & Config.UP) == Config.UP) {
 			Task t = tasks.get(taskId);
 			t.addContent(seqNo, data);
-//			getNetworkLayer().sendPacket(ack);
 			
-			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo + 1, Config.ACK | Config.UP, 0xffffffff);
+			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, t.nextExpectedPacket(), Config.ACK | Config.UP, 0xffffffff);
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
-//			this.sendPacket(packet, addr, windowSize);
 			
 		} else if ((flags & Config.DOWN) == Config.DOWN) {
 		} else if ((flags & Config.STATS) == Config.STATS) {
