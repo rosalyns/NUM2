@@ -13,11 +13,11 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	public static int ID = 1;
 
 	public enum Type {
-		DOWNLOAD, UPLOAD
+		STORE_FILE, SEND_FILE
 	}
 
 	private int id;
-//	private String fileName;
+	private String fileName;
 	private Task.Type type;
 	private DatagramSocket sock;
 	private InetAddress addr;
@@ -25,9 +25,18 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	private byte[] file;
 	private byte[][] storedPackets;
 	private int totalFileSize;
+	
+	private int LAR = Config.FIRST_PACKET;
+	private int LFR = -1;
+	private int offset = 0;
+	private int datalen = -1;
+	private int sequenceNumber = Config.FIRST_PACKET;
+	private boolean[] ackedPackets = new boolean[Config.K];
+	private boolean lastPacket = false;
+	private boolean waitingForAcks = true;
 
 	public Task(Task.Type type, String fileName, DatagramSocket sock, InetAddress addr, int port, int fileSize) {
-//		this.fileName = fileName;
+		this.fileName = fileName;
 		this.setName(fileName);
 		this.type = type;
 		this.sock = sock;
@@ -35,28 +44,18 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		this.port = port;
 		this.totalFileSize = fileSize;
 		
-		if(type == Task.Type.UPLOAD) {
+		if(type == Task.Type.SEND_FILE) {
 			Integer[] fileContents = Utils.getFileContents(fileName);
 			file = new byte[fileContents.length];
 			for (int i = 0; i < fileContents.length; i++) {
 				file[i] = (byte) (int)fileContents[i];
 			}
-		} else if (type == Task.Type.DOWNLOAD) {
+		} else if (type == Task.Type.STORE_FILE) {
 			storedPackets = new byte[Config.K][Config.DATASIZE];
 			Arrays.fill(storedPackets, null);
 			file = new byte[0];
-			
 		}
 	}
-
-	private int LAR = -1;
-	private int LFR = -1;
-	private int offset = 0;
-	private int datalen = -1;
-	private int sequenceNumber = 0;
-	private boolean[] ackedPackets = new boolean[Config.K];
-	private boolean lastPacket = false;
-	private boolean canSendAgain = false;
 
 	@Override
 	public void run() {
@@ -66,8 +65,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				lastPacket = datalen < Config.DATASIZE;
 
 				byte[] header = Header.ftp(this.id, sequenceNumber, 0, Config.UP, 0xffffffff);
-				byte[] data = new byte[datalen];
-				System.arraycopy(file, offset, data, 0, datalen);
+				byte[] data = Arrays.copyOfRange(file, offset, offset+datalen);
 				byte[] pkt = Utils.mergeArrays(header, data);
 				sendPacket(pkt);
 				
@@ -80,15 +78,17 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				} catch (InterruptedException e) {
 				}
 			}
-			canSendAgain = false;
-			while (!canSendAgain) {
+
+			while (waitingForAcks) {
 				try {
 					Thread.sleep(100);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
 			}
+			waitingForAcks = true;
 		}
+		System.out.println("finished sending task");
 	}
 
 //	private DatagramPacket getEmptyPacket() {
@@ -110,8 +110,8 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	}
 
 	private boolean inSendingWindow(int packetNumber) {
-		return (LAR < packetNumber && packetNumber <= (LAR + Config.SWS))
-				|| (LAR + Config.SWS >= Config.K && packetNumber <= (LAR + Config.SWS) % Config.K);
+		return (LAR <= packetNumber && packetNumber < (LAR + Config.SWS))
+				|| (LAR + Config.SWS > Config.K && packetNumber < (LAR + Config.SWS) % Config.K);
 	}
 
 	public boolean inReceivingWindow(int packetNumber) {
@@ -119,11 +119,15 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				|| (LFR + Config.RWS >= Config.K && packetNumber <= (LFR + Config.RWS) % Config.K);
 	}
 
-	private int nextAckPacket() {
+	public int nextExpectedAck() {
 		return (LAR + 1) % Config.K;
 	}
 
-	public int nextReceivingPacket() {
+	public int nextExpectedPacket() {
+		if (LFR == -1) {
+			LFR = Config.FIRST_PACKET - 1;
+			return Config.FIRST_PACKET;
+		}
 		return (LFR + 1) % Config.K;
 	}
 
@@ -133,45 +137,46 @@ public class Task extends Thread implements ITimeoutEventHandler {
 
 	public void acked(int ackNo) {
 		System.out.println("ACK " + ackNo + " received.");
-		if (ackNo == nextAckPacket()) {
+		if (ackNo == nextExpectedAck()) {
 			LAR = ackNo;
-			canSendAgain = true;
+			waitingForAcks = false;
 			System.out.println("LAR is now " + LAR + " .");
 		} else if (inSendingWindow(ackNo)) {
 			ackedPackets[ackNo] = true;
 		}
 
-		while (ackedPackets[nextAckPacket()]) {
-			LAR = nextAckPacket();
+		while (ackedPackets[nextExpectedAck()]) {
+			LAR = nextExpectedAck();
 			ackedPackets[LAR] = false;
 			System.out.println(LAR + " was already acked.");
 		}
 	}
 	
 	public void addContent(int seqNo, byte[] data) {
-		if (seqNo == nextReceivingPacket()) {
+		if (seqNo == nextExpectedPacket()) {
 			file = Utils.mergeArrays(file, data);
 			System.out.println("added " + seqNo + " to filecontent.");
 			if (file.length == this.totalFileSize) {	// means COMPLETE
 				lastPacket = true;
 				System.out.println("finished file..");
-				//TODO actually setContents in the file
+				
+//				Utils.setFileContents(file, fileName);
 			}
 			LFR++;
 		} else if (inReceivingWindow(seqNo)) {
 			storedPackets[seqNo] = data;
 		}
 		
-		while (storedPackets[nextReceivingPacket()] != null) {
-			file = Utils.mergeArrays(file, storedPackets[nextReceivingPacket()]);
-			System.out.println("added " + nextReceivingPacket() + " to filecontent.");
+		while (storedPackets[nextExpectedPacket()] != null) {
+			file = Utils.mergeArrays(file, storedPackets[nextExpectedPacket()]);
+			System.out.println("added " + nextExpectedPacket() + " to filecontent.");
 			
 			if (file.length == this.totalFileSize) {	// means COMPLETE
 				lastPacket = true;
 				System.out.println("finished file..");
 				//TODO actually setContents in the file
 			}
-			storedPackets[nextReceivingPacket()] = null;
+			storedPackets[nextExpectedPacket()] = null;
 			LFR++;
 		}
 	}
@@ -194,6 +199,10 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	
 	public int getTotalFileSize() {
 		return this.totalFileSize;
+	}
+	
+	public int getCurrentFileSize() {
+		return this.file.length;
 	}
 
 	public boolean finished() {

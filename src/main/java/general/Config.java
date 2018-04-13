@@ -12,6 +12,7 @@ public class Config {
 	public static final int K = 100;
 	public static final int SWS = 25;
 	public static final int RWS = 25;
+	public static final int FIRST_PACKET = 2;
 
 	//flags
 	public static final int REQ_UP = 	0b10000000;

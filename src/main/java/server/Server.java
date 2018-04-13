@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -66,6 +67,7 @@ public class Server implements ITimeoutEventHandler {
 	
 	private void handlePacket(DatagramPacket packet) {
 		byte[] pkt = packet.getData();
+		byte[] shorter = Arrays.copyOfRange(pkt, 0, packet.getLength());
 		int taskId = Header.twoBytes2int(pkt[0],pkt[1]);
 		int checksum = Header.twoBytes2int(pkt[2],pkt[3]);
 		int seqNo = Header.twoBytes2int(pkt[4],pkt[5]);
@@ -76,11 +78,11 @@ public class Server implements ITimeoutEventHandler {
 		
 		//only REQ_UP has extra header that contains the size of the file the client wants to upload
 		if ((flags & Config.REQ_UP)==Config.REQ_UP) {
-			data = new byte[pkt.length - Config.HEADERSIZE - Config.UP_HEADERSIZE];
-			System.arraycopy(pkt, Config.HEADERSIZE+Config.UP_HEADERSIZE, data, 0, pkt.length - Config.HEADERSIZE - Config.UP_HEADERSIZE);
+			data = new byte[shorter.length - Config.HEADERSIZE - Config.UP_HEADERSIZE];
+			System.arraycopy(shorter, Config.HEADERSIZE+Config.UP_HEADERSIZE, data, 0, shorter.length - Config.HEADERSIZE - Config.UP_HEADERSIZE);
 		} else {
-			data = new byte[pkt.length - Config.HEADERSIZE];
-			System.arraycopy(pkt, Config.HEADERSIZE, data, 0, pkt.length - Config.HEADERSIZE);
+			data = new byte[shorter.length - Config.HEADERSIZE];
+			System.arraycopy(shorter, Config.HEADERSIZE, data, 0, shorter.length - Config.HEADERSIZE);
 		}
 		
 		System.out.println("[Server] Packet received from " + packet.getSocketAddress() 
@@ -94,7 +96,7 @@ public class Server implements ITimeoutEventHandler {
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN) {
 			int fileSize = Utils.getFileSize(new String(data));
 			
-			Task t = new Task(Task.Type.DOWNLOAD, new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
+			Task t = new Task(Task.Type.STORE_FILE, new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;
@@ -107,7 +109,7 @@ public class Server implements ITimeoutEventHandler {
 			String fileName = new String(data);
 			//TODO something with filename
 			
-			Task t = new Task(Task.Type.DOWNLOAD, "output"+fileName, sock, packet.getAddress(), packet.getPort(), fileSize);
+			Task t = new Task(Task.Type.STORE_FILE, "output"+fileName, sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;

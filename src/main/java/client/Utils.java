@@ -99,10 +99,10 @@ public class Utils {
      * @param fileContents the contents to write
      * @param id the file ID
      */
-    public static void setFileContents(Integer[] fileContents, int id) {
-        File fileToWrite = new File(String.format("rdtcOutput%d.%d.png", id, Utils.getProcessId()));
+    public static void setFileContents(byte[] fileContents, String fileName) {
+        File fileToWrite = new File(String.format(fileName, Utils.getProcessId()));
         try (FileOutputStream fileStream = new FileOutputStream(fileToWrite)) {
-            for (Integer fileContent : fileContents) {
+            for (byte fileContent : fileContents) {
                 fileStream.write(fileContent);
             }
         } catch (Exception e) {

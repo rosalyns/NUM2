@@ -141,7 +141,7 @@ public class Client implements ITimeoutEventHandler {
 		byte[] pkt = Utils.mergeArrays(header, upHeader, fileName.getBytes());
 		System.out.println("Sending packet with seq_no " + sequenceNumber + " and fileSize " + fileSize);
 		
-		Task newTask = new Task(Task.Type.UPLOAD, fileName, sock, host, port, fileSize);
+		Task newTask = new Task(Task.Type.SEND_FILE, fileName, sock, host, port, fileSize);
 		requestedUps.add(newTask);
 		
 		sendPacket(pkt);

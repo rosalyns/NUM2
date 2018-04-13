@@ -1,14 +1,10 @@
-- hoe krijg ik iets in NUM2.jar ?
-- moet het op een speciale UDP poort of willekeurige poort, maar wel dezelfde
-- ticks gebruiken ?
-
-
-
 
 Situaties:
 
 - upload: wanneer is file klaar? Als laatste ack binnen is? nu: als pakketje korter is dan normaal is het de laatste
+	-> veranderd naar als file evengroot is als vantevoren gezegd.
 - download: wanneer is file klaar? Je weet geen filesize. flag?
+- als je niet met seqNo = 0 begint aan receiver kant, verwacht ie dat niet als eerste pakketje. (LFR = -1 aan het begin) voeg boolean first toe? 
 
 
 
