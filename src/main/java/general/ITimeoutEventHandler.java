@@ -1,4 +1,4 @@
-package client;
+package general;
 
 /**
  * Interface for timeout event handlers

@@ -10,6 +10,10 @@ Situaties:
 
 
 
+-niet file 3x in array stoppen, maar direct uit bestand halen. OFFSET gebruiken, zelfde voor storing
+
+
+
 (SIGNED) BYTE NAAR INT:
 int a = b & 0xff			// java ziet dit als 200
 

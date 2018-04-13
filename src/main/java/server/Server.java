@@ -8,11 +8,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import client.ITimeoutEventHandler;
-import client.Utils;
-import general.Config;
-import general.Header;
-import general.Task;
+import general.*;
 
 public class Server implements ITimeoutEventHandler {
 
@@ -96,10 +92,17 @@ public class Server implements ITimeoutEventHandler {
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN) {
 			int fileSize = Utils.getFileSize(new String(data));
 			
-			Task t = new Task(Task.Type.STORE_FILE, new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
+			
+			
+			Task t = new Task(Task.Type.STORE_ON_CLIENT, new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;
+			
+			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo + 1, Config.ACK | Config.REQ_DOWN, 0xffffffff);//TODO think about seqNo?
+			this.sendPacket(header, packet.getAddress(), packet.getPort());
+			
+			t.start();
 			
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP) {
 			int fileSize = Header.fourBytes2int(pkt[12], pkt[13], pkt[14], pkt[15]);
@@ -107,7 +110,7 @@ public class Server implements ITimeoutEventHandler {
 			//TODO check if enough space
 			
 			String fileName = new String(data);
-			Task t = new Task(Task.Type.STORE_FILE, "output"+fileName, sock, packet.getAddress(), packet.getPort(), fileSize);
+			Task t = new Task(Task.Type.STORE_ON_SERVER, "output-"+fileName, sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;
@@ -138,7 +141,7 @@ public class Server implements ITimeoutEventHandler {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		client.Utils.Timeout.SetTimeout(1000, this, packet);
+		Utils.Timeout.SetTimeout(1000, this, packet);
 	}
 	
 	@Override

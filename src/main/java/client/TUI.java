@@ -48,6 +48,7 @@ public class TUI implements Runnable {
 					print("Put the file you want to upload in the current folder and type the name of the file:");
 				} else if (words.length == 1 && words[0].equalsIgnoreCase("2")) {
 					state = State.WANT_TO_DOWNLOAD;
+					print("Type the name of the file you want to download:");
 				} else if (words.length == 1 && words[0].equalsIgnoreCase("3")) {
 					state = State.STATISTICS;
 				} else if (words.length == 1 && words[0].equalsIgnoreCase("4")) {
@@ -62,7 +63,8 @@ public class TUI implements Runnable {
 				client.uploadFile(words[0]);
 				break;
 			case WANT_TO_DOWNLOAD:
-				client.askForFiles();
+				client.downloadFile(words[0]);
+//				client.askForFiles();
 				break;
 			case CHOOSE_DOWNLOAD:
 				

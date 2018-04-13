@@ -6,15 +6,12 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
 
-import client.ITimeoutEventHandler;
-import client.Utils;
-
 public class Task extends Thread implements ITimeoutEventHandler {
-	public static int ID = 1;
 
 	public enum Type {
-		STORE_FILE, SEND_FILE
+		STORE_ON_CLIENT, SEND_FROM_CLIENT, STORE_ON_SERVER, SEND_FROM_SERVER
 	}
+	public static boolean actuallyStoreFile = true;
 
 	private int id;
 	private String fileName;
@@ -44,13 +41,13 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		this.port = port;
 		this.totalFileSize = fileSize;
 		
-		if(type == Task.Type.SEND_FILE) {
+		if (type == Task.Type.SEND_FROM_CLIENT || type == Task.Type.SEND_FROM_SERVER) {
 			Integer[] fileContents = Utils.getFileContents(fileName);
 			file = new byte[fileContents.length];
 			for (int i = 0; i < fileContents.length; i++) {
 				file[i] = (byte) (int)fileContents[i];
 			}
-		} else if (type == Task.Type.STORE_FILE) {
+		} else if (type == Task.Type.STORE_ON_CLIENT || type == Task.Type.STORE_ON_SERVER) {
 			storedPackets = new byte[Config.K][Config.DATASIZE];
 			Arrays.fill(storedPackets, null);
 			file = new byte[0];
@@ -62,8 +59,9 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		while (!lastPacket) {
 			while (offset < file.length && inSendingWindow(sequenceNumber)) {
 				datalen = Math.min(Config.DATASIZE, file.length - offset);
-				lastPacket = datalen < Config.DATASIZE;
-
+				lastPacket = offset + datalen >= totalFileSize;
+				System.out.println("lastPacket = " + Boolean.toString(lastPacket));
+				
 				byte[] header = Header.ftp(this.id, sequenceNumber, 0, Config.UP, 0xffffffff);
 				byte[] data = Arrays.copyOfRange(file, offset, offset+datalen);
 				byte[] pkt = Utils.mergeArrays(header, data);
@@ -73,22 +71,25 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				sequenceNumber = (sequenceNumber + 1) % Config.K;
 				offset += datalen;
 
-				try {
-					Thread.sleep(1000);
-				} catch (InterruptedException e) {
-				}
+//				try {
+//					Thread.sleep(10);
+//				} catch (InterruptedException e) {
+//				}
+				System.out.println("ladiela1");
 			}
 
 			while (waitingForAcks) {
 				try {
 					Thread.sleep(100);
+					System.out.println("ladiela");
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
 			}
+			System.out.println("waiting for acks = true");
 			waitingForAcks = true;
 		}
-		System.out.println("finished sending task");
+		System.out.println("finished sending task");//boolean finished
 	}
 
 //	private DatagramPacket getEmptyPacket() {
@@ -106,7 +107,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		client.Utils.Timeout.SetTimeout(3000, this, packet);
+		Utils.Timeout.SetTimeout(1000, this, packet);
 	}
 
 	private boolean inSendingWindow(int packetNumber) {
@@ -160,7 +161,9 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				lastPacket = true;
 				System.out.println("finished file..");
 				
-				Utils.setFileContents(file, fileName);
+				if(actuallyStoreFile) {
+					Utils.setFileContents(file, fileName);
+				}
 			}
 			LFR++;
 		} else if (inReceivingWindow(seqNo)) {
@@ -175,7 +178,9 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				lastPacket = true;
 				System.out.println("finished file..");
 
-				Utils.setFileContents(file, fileName);
+				if(actuallyStoreFile) {
+					Utils.setFileContents(file, fileName);
+				}
 			}
 			storedPackets[nextExpectedPacket()] = null;
 			LFR++;
@@ -183,11 +188,12 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	}
 	
 	@Override
-	public void TimeoutElapsed(Object tag) {
+	public void TimeoutElapsed(Object tag) { //TODO timeouts van boven LAR nog niet stoppen
 		byte[] pkt = (byte[]) tag;
 		
 		int seqNo = Header.twoBytes2int(pkt[4],pkt[5]);
 		if (inSendingWindow(seqNo) && !receivedAck(seqNo + 1)) {
+			System.out.println("retransmission of packet " + seqNo);
 			sendPacket(pkt);
 		}
 	}

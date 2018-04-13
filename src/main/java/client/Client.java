@@ -9,9 +9,7 @@ import java.util.Queue;
 import java.util.HashMap;
 import java.util.LinkedList;
 
-import general.Task;
-import general.Config;
-import general.Header;
+import general.*;
 
 public class Client implements ITimeoutEventHandler {
 
@@ -71,7 +69,7 @@ public class Client implements ITimeoutEventHandler {
 		byte flags = pkt[8];
 		int windowSize = Header.twoBytes2int(pkt[10],pkt[11]);
 		
-		System.out.println("[Server] Packet received from " + packet.getSocketAddress() 
+		System.out.println("[Client] Packet received from " + packet.getSocketAddress() 
 		+ " :\ntaskID: "  + taskId 
 		+ "\nchecksum: " + checksum 
 		+ "\nseqNo: " + seqNo 
@@ -84,8 +82,9 @@ public class Client implements ITimeoutEventHandler {
 		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN && (flags & Config.ACK) == Config.ACK) {
 			if (!requestedDowns.isEmpty()) {
-				Task task = requestedDowns.poll();
-				tasks.put(taskId, task);
+				Task t = requestedDowns.poll();
+				t.setId(taskId);
+				tasks.put(t.getTaskId(), t);
 			}
 			System.out.println("REQ_DOWN + ACK");
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP && (flags & Config.ACK) == Config.ACK) {
@@ -101,9 +100,10 @@ public class Client implements ITimeoutEventHandler {
 			task.acked(ackNo);
 			System.out.println("UP + ACK");
 		} else if ((flags & Config.DOWN) == Config.DOWN) {
-			//TODO store file contents
+			Task t = tasks.get(taskId);
+			t.addContent(seqNo, data);
 			
-			byte[] header = Header.ftp(taskId, 3, seqNo + 1, Config.ACK | Config.DOWN, 0xffffffff);//TODO send correct ackNo (% K)
+			byte[] header = Header.ftp(taskId, 3, t.nextExpectedPacket(), Config.ACK | Config.DOWN, 0xffffffff);//TODO send correct ackNo (% K)
 			this.sendPacket(header);
 			System.out.println("DOWN");
 		} else if ((flags & Config.STATS) == Config.STATS) {
@@ -133,7 +133,7 @@ public class Client implements ITimeoutEventHandler {
 	}
 	
 	public void uploadFile(String fileName) {
-		int sequenceNumber = 3; //TODO think about seqNo
+		int sequenceNumber = 3; //TODO think about seqNo (in Timeout)
 		int fileSize = Utils.getFileSize(fileName);
 		
 		byte[] header = Header.ftp(0,sequenceNumber, 0,Config.REQ_UP, 0xffffffff);
@@ -141,8 +141,19 @@ public class Client implements ITimeoutEventHandler {
 		byte[] pkt = Utils.mergeArrays(header, upHeader, fileName.getBytes());
 		System.out.println("Sending packet with seq_no " + sequenceNumber + " and fileSize " + fileSize);
 		
-		Task newTask = new Task(Task.Type.SEND_FILE, fileName, sock, host, port, fileSize);
-		requestedUps.add(newTask);
+		Task t = new Task(Task.Type.SEND_FROM_CLIENT, fileName, sock, host, port, fileSize);
+		requestedUps.add(t);
+		
+		sendPacket(pkt);
+		sequenceNumber = (sequenceNumber + 1) % Config.K;
+	}
+	
+	public void downloadFile(String fileName) {
+		int sequenceNumber = 3;
+		byte[] pkt = Header.ftp(0, sequenceNumber, 0, Config.REQ_DOWN,	0xffffffff);
+		
+		Task t = new Task(Task.Type.STORE_ON_CLIENT, "clientDownload-"+fileName, sock, host, port, 0); //TODO think about fileSize (last param)
+		requestedDowns.add(t);
 		
 		sendPacket(pkt);
 		sequenceNumber = (sequenceNumber + 1) % Config.K;
@@ -159,7 +170,7 @@ public class Client implements ITimeoutEventHandler {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		client.Utils.Timeout.SetTimeout(1000, this, packet);
+		Utils.Timeout.SetTimeout(1000, this, packet);
 	}
 
 	@Override
