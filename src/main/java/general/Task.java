@@ -1,5 +1,8 @@
 package general;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -20,6 +23,8 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	private InetAddress addr;
 	private int port;
 	private byte[] file;
+	private File downloadedFile;
+	private FileOutputStream downloadedFileStream;
 	private byte[][] storedPackets;
 	private int totalFileSize;
 	
@@ -50,7 +55,12 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		} else if (type == Task.Type.STORE_ON_CLIENT || type == Task.Type.STORE_ON_SERVER) {
 			storedPackets = new byte[Config.K][Config.DATASIZE];
 			Arrays.fill(storedPackets, null);
-			file = new byte[0];
+			this.downloadedFile = new File(String.format(fileName));
+			try {
+				this.downloadedFileStream = new FileOutputStream(this.downloadedFile);
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -155,14 +165,15 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	
 	public void addContent(int seqNo, byte[] data) {
 		if (seqNo == nextExpectedPacket()) {
-			file = Utils.mergeArrays(file, data);
+			Utils.setContents(this.downloadedFileStream, data);
 			System.out.println("added " + seqNo + " to filecontent.");
-			if (file.length == this.totalFileSize) {	// means COMPLETE
+			if (this.downloadedFile.length() == this.totalFileSize) {	// means COMPLETE
 				lastPacket = true;
 				System.out.println("finished file..");
-				
-				if(actuallyStoreFile) {
-					Utils.setFileContents(file, fileName);
+				try {
+					this.downloadedFileStream.close();
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
 			}
 			LFR++;
@@ -171,15 +182,17 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		}
 		
 		while (storedPackets[nextExpectedPacket()] != null) {
-			file = Utils.mergeArrays(file, storedPackets[nextExpectedPacket()]);
+			Utils.setContents(this.downloadedFileStream, storedPackets[nextExpectedPacket()]);
 			System.out.println("added " + nextExpectedPacket() + " to filecontent.");
 			
-			if (file.length == this.totalFileSize) {	// means COMPLETE
+			if (this.downloadedFile.length() == this.totalFileSize) {	// means COMPLETE
 				lastPacket = true;
 				System.out.println("finished file..");
 
-				if(actuallyStoreFile) {
-					Utils.setFileContents(file, fileName);
+				try {
+					this.downloadedFileStream.close();
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
 			}
 			storedPackets[nextExpectedPacket()] = null;
@@ -211,7 +224,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	}
 	
 	public int getCurrentFileSize() {
-		return this.file.length;
+		return (int) this.downloadedFile.length();
 	}
 
 	public boolean finished() {

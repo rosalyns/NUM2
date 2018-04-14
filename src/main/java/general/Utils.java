@@ -100,10 +100,9 @@ public class Utils {
 		return null;
 	}
 	
-	public static void setContents(byte[] fileContents, String fileName, int offset) {
-		File fileToWrite = new File(String.format(fileName, Utils.getProcessId()));
-		try (FileOutputStream fileStream = new FileOutputStream(fileToWrite)) {
-			for (byte fileContent : fileContents) {
+	public static void setContents(FileOutputStream fileStream, byte[] data) {
+		try {
+			for (byte fileContent : data) {
 				fileStream.write(fileContent);
 			}
 		} catch (Exception e) {
