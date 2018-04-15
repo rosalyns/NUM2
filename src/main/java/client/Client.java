@@ -108,7 +108,6 @@ public class Client implements ITimeoutEventHandler {
 			byte[] header = Header.ftp(taskId, 3, seqNo, Config.ACK | Config.TRANSFER, 0xffffffff);//TODO send correct ackNo (% K)
 			this.sendPacket(header);
 			
-			System.out.println("DOWN");
 		} else if ((flags & Config.STATS) == Config.STATS) {
 			System.out.println("Packet has STATS flag set"); 
 		}

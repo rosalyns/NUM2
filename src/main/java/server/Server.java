@@ -1,5 +1,6 @@
 package server;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -30,11 +31,15 @@ public class Server {
 	private DatagramSocket sock;
 	private Map<Integer, Task> tasks;
 	private int currentTaskId = 1;
+	private File folder;
+	private File[] allFiles;
 
 	private static boolean keepAlive = true;
 	private static int RANDOM_SEQ = 25;
 
 	public Server(int portArg) {
+		this.folder = new File("");
+		this.allFiles = folder.listFiles();
 		this.port = portArg;
 		this.tasks = new HashMap<Integer, Task>();
 	}
@@ -126,7 +131,24 @@ public class Server {
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
 			
 		} else if ((flags & Config.STATS) == Config.STATS) {
+		} else if ((flags & Config.LIST) == Config.LIST) {
+			
+			byte[] header = Header.ftp(0, RANDOM_SEQ, seqNo, Config.ACK | Config.LIST, 0xffffffff);
+			byte[] files = null;
+					
+					
+					
+			byte[] alles = Utils.mergeArrays(header, files);
+			this.sendPacket(alles,  packet.getAddress(), packet.getPort());
 		}
+	}
+	
+	private String listFiles() {
+		String result = "";
+		for (File file : allFiles) {
+			result += file.getName() + ",";
+		}
+		return result;
 	}
 
 	private DatagramPacket getEmptyPacket() {
