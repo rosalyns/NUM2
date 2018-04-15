@@ -28,6 +28,7 @@ public class Client implements ITimeoutEventHandler {
 	// whether the simulation is finished
 	private boolean simulationFinished = false;
 	private static boolean keepAlive = true;
+	private static int RANDOM_SEQ = 3; //TODO not random?
 	
 	public Client(InetAddress serverAddress, int serverPort) throws IOException {
 		this.host = serverAddress;
@@ -64,14 +65,16 @@ public class Client implements ITimeoutEventHandler {
 	}
 	
 	private void handlePacket(DatagramPacket packet) {
-		byte[] pkt = packet.getData();
-		byte[] shorter = Arrays.copyOfRange(pkt, 0, packet.getLength());
+		byte[] pkt = Arrays.copyOfRange(packet.getData(), 0, packet.getLength());
 		int taskId = Header.twoBytes2int(pkt[0],pkt[1]);
 		int checksum = Header.twoBytes2int(pkt[2],pkt[3]);
 		int seqNo = Header.twoBytes2int(pkt[4],pkt[5]);
 		int ackNo = Header.twoBytes2int(pkt[6],pkt[7]);
 		byte flags = pkt[8];
 		int windowSize = Header.twoBytes2int(pkt[10],pkt[11]);
+		
+		byte[] data = new byte[pkt.length - Config.FTP_HEADERSIZE];
+		System.arraycopy(pkt, Config.FTP_HEADERSIZE, data, 0, pkt.length - Config.FTP_HEADERSIZE);
 		
 //		System.out.println("[Client] Packet received from " + packet.getSocketAddress() 
 //		+ " :\ntaskID: "  + taskId 
@@ -80,9 +83,6 @@ public class Client implements ITimeoutEventHandler {
 //		+ "\nackNo: " + ackNo 
 //		+ "\nflags: " + Integer.toBinaryString(flags) 
 //		+ "\nwindowSize: " + windowSize);
-		
-		byte[] data = new byte[shorter.length - Config.HEADERSIZE];
-		System.arraycopy(shorter, Config.HEADERSIZE, data, 0, shorter.length - Config.HEADERSIZE);
 		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN && (flags & Config.ACK) == Config.ACK) {
 			if (!requestedDowns.isEmpty()) {
@@ -110,6 +110,9 @@ public class Client implements ITimeoutEventHandler {
 			
 		} else if ((flags & Config.STATS) == Config.STATS) {
 			System.out.println("Packet has STATS flag set"); 
+		} else if ((flags & Config.LIST) == Config.LIST && (flags & Config.ACK) == Config.ACK) {
+			String files = new String(data);
+			tui.showFilesOnServer(files.split(" "));
 		}
 	}
 	
@@ -123,11 +126,13 @@ public class Client implements ITimeoutEventHandler {
 	
 	
 	public void askForFiles() {
-		System.out.println("asking for files..");
+		byte[] header = Header.ftp(0, RANDOM_SEQ, 0, Config.LIST, 0xffffffff);
+		sendPacket(header);
 	}
 	
 	public void askForStatistics() {
-		System.out.println("asking for statistics..");
+		byte[] header = Header.ftp(0, RANDOM_SEQ, 0, Config.STATS, 0xffffffff);
+		sendPacket(header);
 	}
 	
 	public void askForProgress() {
@@ -135,36 +140,32 @@ public class Client implements ITimeoutEventHandler {
 	}
 	
 	public void uploadFile(String fileName) {
-		int sequenceNumber = 3; //TODO think about seqNo (in Timeout)
-		int fileSize = Utils.getFileSize(fileName);
+		int fileSize = Utils.getFileSize("downloads/" + fileName);
 		
-		byte[] header = Header.ftp(0,sequenceNumber, 0,Config.REQ_UP, 0xffffffff);
-		byte[] upHeader = Header.upload(fileSize);
-		byte[] pkt = Utils.mergeArrays(header, upHeader, fileName.getBytes());
-		System.out.println("Sending packet with seq_no " + sequenceNumber + " and fileSize " + fileSize);
+		byte[] header = Header.ftp(0, RANDOM_SEQ, 0,Config.REQ_UP, 0xffffffff);
+		byte[] sizeHeader = Header.fileSize(fileSize);
+		byte[] pkt = Utils.mergeArrays(header, sizeHeader, fileName.getBytes());
+		System.out.println("Sending packet with seq_no " + RANDOM_SEQ + " and fileSize " + fileSize);
 		
 		Task t = new Task(Task.Type.SEND_FROM_CLIENT, fileName, sock, host, port, fileSize);
 		requestedUps.add(t);
 		
 		sendPacket(pkt);
-		sequenceNumber = (sequenceNumber + 1) % Config.K;
 	}
 	
 	public void downloadFile(String fileName) {
-		int sequenceNumber = 3;
-		byte[] header = Header.ftp(0, sequenceNumber, 0, Config.REQ_DOWN,	0xffffffff);
+		byte[] header = Header.ftp(0, RANDOM_SEQ, 0, Config.REQ_DOWN,	0xffffffff);
 		byte[] data = fileName.getBytes();
 		byte[] pkt = Utils.mergeArrays(header, data);
 		
-		Task t = new Task(Task.Type.STORE_ON_CLIENT, "clientDownload-"+fileName, sock, host, port, 200000000); //TODO think about fileSize (last param)
+		Task t = new Task(Task.Type.STORE_ON_CLIENT, "downloads/"+fileName, sock, host, port, 200000000); //TODO think about fileSize (last param)
 		requestedDowns.add(t);
 		
 		sendPacket(pkt);
-		sequenceNumber = (sequenceNumber + 1) % Config.K;
 	}
 	
 	private DatagramPacket getEmptyPacket() {
-		byte[] data = new byte[Config.HEADERSIZE + Config.DATASIZE];
+		byte[] data = new byte[Config.FTP_HEADERSIZE + Config.DATASIZE];
 		return new DatagramPacket(data, data.length);
 	}
 	

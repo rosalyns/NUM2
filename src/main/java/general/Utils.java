@@ -5,7 +5,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -82,6 +81,10 @@ public class Utils {
 	 */
 	public static int getFileSize(String fileName) {
 		return (int) new File(String.format(fileName)).length();
+	}
+	
+	public static int incrementNumberModuloK(int number) {
+		return (number + 1) % Config.K;
 	}
 
 	/**

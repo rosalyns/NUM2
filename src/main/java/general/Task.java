@@ -70,7 +70,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				sendPacket(pkt);
 				
 				System.out.println("Sending packet with seq_no " + sequenceNumber);
-				sequenceNumber = (sequenceNumber + 1) % Config.K;
+				sequenceNumber = Utils.incrementNumberModuloK(sequenceNumber);
 				offset += datalen;
 
 //				try {
@@ -115,7 +115,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	}
 
 	public int nextExpectedAck() {
-		return (LAR + 1) % Config.K;
+		return Utils.incrementNumberModuloK(LAR);
 	}
 
 	public int nextExpectedPacket() {
@@ -123,7 +123,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 			LFR = Config.FIRST_PACKET - 1;
 			return Config.FIRST_PACKET;
 		}
-		return (LFR + 1) % Config.K;
+		return Utils.incrementNumberModuloK(LFR);
 	}
 
 	private boolean receivedAck(int packetNumber) {
@@ -167,7 +167,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				}
 			}
 			storedPackets[nextExpectedPacket()] = null;
-			LFR = (LFR + 1) % Config.K;
+			LFR = Utils.incrementNumberModuloK(LFR);
 		}
 	}
 	

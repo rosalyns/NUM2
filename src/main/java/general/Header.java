@@ -5,7 +5,7 @@ public class Header {
 	private Header() {}
 	
 	public static byte[] ftp(int taskId, int seqNo, int ackNo, int flags, int windowSize) {
-		byte[] header = new byte[Config.HEADERSIZE];
+		byte[] header = new byte[Config.FTP_HEADERSIZE];
 
 		//task_id
 		byte[] task = int2twoBytes(taskId);
@@ -38,7 +38,7 @@ public class Header {
 		return header;
 	}
 	
-	public static byte[] upload(int fileSize) {
+	public static byte[] fileSize(int fileSize) {
 		byte[] header = new byte[4];
 		
 		byte[] size = int2fourBytes(fileSize);

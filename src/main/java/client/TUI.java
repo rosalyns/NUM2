@@ -48,7 +48,7 @@ public class TUI implements Runnable {
 					print("Put the file you want to upload in the current folder and type the name of the file:");
 				} else if (words.length == 1 && words[0].equalsIgnoreCase("2")) {
 					state = State.WANT_TO_DOWNLOAD;
-					print("Type the name of the file you want to download:");
+					client.askForFiles();
 				} else if (words.length == 1 && words[0].equalsIgnoreCase("3")) {
 					state = State.STATISTICS;
 				} else if (words.length == 1 && words[0].equalsIgnoreCase("4")) {
@@ -64,7 +64,6 @@ public class TUI implements Runnable {
 				break;
 			case WANT_TO_DOWNLOAD:
 				client.downloadFile(words[0]);
-//				client.askForFiles();
 				break;
 			case CHOOSE_DOWNLOAD:
 				
@@ -92,20 +91,18 @@ public class TUI implements Runnable {
 				+ "BLACK or WHITE, boardsize should be between 5 and 19.");
 	}
 
-	public void showFilesOnServer(List<String> files) {
-		String filesStr = "Files:";
+	public void showFilesOnServer(String[] files) {
+		String filesStr = "Available files on the server:";
 		boolean filesAdded = false;
 		for (String fileName : files) {
-			filesStr += " " + fileName;
+			filesStr += "\n" + fileName;
 			filesAdded = true;
 		}
 		if (filesAdded) {
-			print("You can challenge one of the following players by typing REQUEST <playername>.\n"
-					+ "Type REQUEST RANDOM if you don't want to challenge a specific player. ");
 			print(filesStr);
+			print("Type the name of the file you want to download or go back to the menu by typing QUIT");
 		} else {
-			print("There are currently no players you can challenge. You can type REQUEST RANDOM"
-					+ " to be next in line to play a game.");
+			print("There are currently files available to download.");
 		}
 	}
 
