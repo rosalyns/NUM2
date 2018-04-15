@@ -38,6 +38,7 @@ public class Client implements ITimeoutEventHandler {
 		this.tui = new TUI(this, System.in);
 		Thread tuiThread = new Thread(tui);
 		tuiThread.start();
+		Utils.Timeout.Start();
 		receive();
 	}
 
@@ -69,13 +70,13 @@ public class Client implements ITimeoutEventHandler {
 		byte flags = pkt[8];
 		int windowSize = Header.twoBytes2int(pkt[10],pkt[11]);
 		
-		System.out.println("[Client] Packet received from " + packet.getSocketAddress() 
-		+ " :\ntaskID: "  + taskId 
-		+ "\nchecksum: " + checksum 
-		+ "\nseqNo: " + seqNo 
-		+ "\nackNo: " + ackNo 
-		+ "\nflags: " + Integer.toBinaryString(flags) 
-		+ "\nwindowSize: " + windowSize);
+//		System.out.println("[Client] Packet received from " + packet.getSocketAddress() 
+//		+ " :\ntaskID: "  + taskId 
+//		+ "\nchecksum: " + checksum 
+//		+ "\nseqNo: " + seqNo 
+//		+ "\nackNo: " + ackNo 
+//		+ "\nflags: " + Integer.toBinaryString(flags) 
+//		+ "\nwindowSize: " + windowSize);
 		
 		byte[] data = new byte[pkt.length - Config.HEADERSIZE];
 		System.arraycopy(pkt, Config.HEADERSIZE, data, 0, pkt.length - Config.HEADERSIZE);
@@ -175,10 +176,14 @@ public class Client implements ITimeoutEventHandler {
 
 	@Override
 	public void TimeoutElapsed(Object tag) {
-//		int numberPacketSent = ((byte[]) tag)[0];
-//		if (inSendingWindow(numberPacketSent) && !receivedAck(numberPacketSent)) { TODO check if request is still open.
+		byte[] pkt = (byte[]) tag;
+		byte flags = pkt[8];
+		
+		if ((flags & Config.REQ_UP) == Config.REQ_UP && !requestedUps.isEmpty()) {
 			sendPacket((byte[]) tag);
-//		}
+		} else if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN && !requestedDowns.isEmpty()) {
+			sendPacket((byte[]) tag);
+		}
 	}
 	
 	public void shutDown() {

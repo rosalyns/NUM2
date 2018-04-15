@@ -17,28 +17,24 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	public static boolean actuallyStoreFile = true;
 
 	private int id;
-	private String fileName;
 	private Task.Type type;
 	private DatagramSocket sock;
 	private InetAddress addr;
 	private int port;
-	private byte[] file;
 	private File downloadedFile;
 	private FileOutputStream downloadedFileStream;
 	private byte[][] storedPackets;
 	private int totalFileSize;
 	
-	private int LAR = Config.FIRST_PACKET;
+	private int LAR = Config.FIRST_PACKET - 1;
 	private int LFR = -1;
-	private int offset = 0;
-	private int datalen = -1;
 	private int sequenceNumber = Config.FIRST_PACKET;
+	
 	private boolean[] ackedPackets = new boolean[Config.K];
 	private boolean lastPacket = false;
 	private boolean waitingForAcks = true;
 
 	public Task(Task.Type type, String fileName, DatagramSocket sock, InetAddress addr, int port, int fileSize) {
-		this.fileName = fileName;
 		this.setName(fileName);
 		this.type = type;
 		this.sock = sock;
@@ -46,15 +42,9 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		this.port = port;
 		this.totalFileSize = fileSize;
 		
-		if (type == Task.Type.SEND_FROM_CLIENT || type == Task.Type.SEND_FROM_SERVER) {
-			Integer[] fileContents = Utils.getFileContents(fileName);
-			file = new byte[fileContents.length];
-			for (int i = 0; i < fileContents.length; i++) {
-				file[i] = (byte) (int)fileContents[i];
-			}
-		} else if (type == Task.Type.STORE_ON_CLIENT || type == Task.Type.STORE_ON_SERVER) {
-			storedPackets = new byte[Config.K][Config.DATASIZE];
-			Arrays.fill(storedPackets, null);
+		if (type == Task.Type.STORE_ON_CLIENT || type == Task.Type.STORE_ON_SERVER) {
+			this.storedPackets = new byte[Config.K][Config.DATASIZE];
+			Arrays.fill(this.storedPackets, null);
 			this.downloadedFile = new File(String.format(fileName));
 			try {
 				this.downloadedFileStream = new FileOutputStream(this.downloadedFile);
@@ -66,14 +56,16 @@ public class Task extends Thread implements ITimeoutEventHandler {
 
 	@Override
 	public void run() {
+		int offset = 0;
+		int datalen = -1;
+		
 		while (!lastPacket) {
-			while (offset < file.length && inSendingWindow(sequenceNumber)) {
-				datalen = Math.min(Config.DATASIZE, file.length - offset);
+			while (offset < totalFileSize && inSendingWindow(sequenceNumber)) {
+				datalen = Math.min(Config.DATASIZE, this.totalFileSize - offset);
 				lastPacket = offset + datalen >= totalFileSize;
-				System.out.println("lastPacket = " + Boolean.toString(lastPacket));
 				
 				byte[] header = Header.ftp(this.id, sequenceNumber, 0, Config.UP, 0xffffffff);
-				byte[] data = Arrays.copyOfRange(file, offset, offset+datalen);
+				byte[] data = Utils.getFileContents(this.getName(), offset);
 				byte[] pkt = Utils.mergeArrays(header, data);
 				sendPacket(pkt);
 				
@@ -85,21 +77,18 @@ public class Task extends Thread implements ITimeoutEventHandler {
 //					Thread.sleep(10);
 //				} catch (InterruptedException e) {
 //				}
-				System.out.println("ladiela1");
 			}
 
 			while (waitingForAcks) {
 				try {
 					Thread.sleep(100);
-					System.out.println("ladiela");
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
 			}
-			System.out.println("waiting for acks = true");
 			waitingForAcks = true;
 		}
-		System.out.println("finished sending task");//boolean finished
+		System.out.println("[Hello] finished sending task!!!!!");//boolean finished
 	}
 
 //	private DatagramPacket getEmptyPacket() {
@@ -117,12 +106,12 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		Utils.Timeout.SetTimeout(1000, this, packet);
+		Utils.Timeout.SetTimeout(3000, this, packet);
 	}
 
 	private boolean inSendingWindow(int packetNumber) {
-		return (LAR <= packetNumber && packetNumber < (LAR + Config.SWS))
-				|| (LAR + Config.SWS > Config.K && packetNumber < (LAR + Config.SWS) % Config.K);
+		return (LAR < packetNumber && packetNumber <= (LAR + Config.SWS))
+				|| (LAR + Config.SWS >= Config.K && packetNumber <= (LAR + Config.SWS) % Config.K);
 	}
 
 	public boolean inReceivingWindow(int packetNumber) {
@@ -151,15 +140,15 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		if (ackNo == nextExpectedAck()) {
 			LAR = ackNo;
 			waitingForAcks = false;
-			System.out.println("LAR is now " + LAR + " .");
+			System.out.println("LAR is now " + LAR + ".");
 		} else if (inSendingWindow(ackNo)) {
 			ackedPackets[ackNo] = true;
 		}
 
 		while (ackedPackets[nextExpectedAck()]) {
 			LAR = nextExpectedAck();
+			System.out.println("LAR is now " + LAR + ". (from previous acks)");
 			ackedPackets[LAR] = false;
-			System.out.println(LAR + " was already acked.");
 		}
 	}
 	
@@ -205,7 +194,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		byte[] pkt = (byte[]) tag;
 		
 		int seqNo = Header.twoBytes2int(pkt[4],pkt[5]);
-		if (inSendingWindow(seqNo) && !receivedAck(seqNo + 1)) {
+		if (inSendingWindow(seqNo) && !receivedAck(seqNo)) {
 			System.out.println("retransmission of packet " + seqNo);
 			sendPacket(pkt);
 		}

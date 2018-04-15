@@ -49,9 +49,9 @@ public class Server implements ITimeoutEventHandler {
 				System.out.println("[Server] Waiting for packets...");
 				sock.receive(p);
 				handlePacket(p);
-				Thread.sleep(100);
+//				Thread.sleep(100);
 
-			} catch (IOException | InterruptedException e) {
+			} catch (IOException e) {
 				// Thread.currentThread().interrupt();
 				keepAlive = false;
 			}
@@ -81,25 +81,23 @@ public class Server implements ITimeoutEventHandler {
 			System.arraycopy(shorter, Config.HEADERSIZE, data, 0, shorter.length - Config.HEADERSIZE);
 		}
 		
-		System.out.println("[Server] Packet received from " + packet.getSocketAddress() 
-		+ " :\ntaskID: "  + taskId 
-		+ "\nchecksum: " + checksum 
-		+ "\nseqNo: " + seqNo 
-		+ "\nackNo: " + ackNo 
-		+ "\nflags: " + Integer.toBinaryString(flags) 
-		+ "\nwindowSize: " + windowSize);
+//		System.out.println("[Server] Packet received from " + packet.getSocketAddress() 
+//		+ " :\ntaskID: "  + taskId 
+//		+ "\nchecksum: " + checksum 
+//		+ "\nseqNo: " + seqNo 
+//		+ "\nackNo: " + ackNo 
+//		+ "\nflags: " + Integer.toBinaryString(flags) 
+//		+ "\nwindowSize: " + windowSize);
 		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN) {
 			int fileSize = Utils.getFileSize(new String(data));
-			
-			
 			
 			Task t = new Task(Task.Type.STORE_ON_CLIENT, new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;
 			
-			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo + 1, Config.ACK | Config.REQ_DOWN, 0xffffffff);//TODO think about seqNo?
+			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo, Config.ACK | Config.REQ_DOWN, 0xffffffff);//TODO think about seqNo?
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
 			
 			t.start();
@@ -115,13 +113,13 @@ public class Server implements ITimeoutEventHandler {
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;
 			
-			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo + 1, Config.ACK | Config.REQ_UP, 0xffffffff);
+			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo, Config.ACK | Config.REQ_UP, 0xffffffff);
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
 		} else if ((flags & Config.UP) == Config.UP) {
 			Task t = tasks.get(taskId);
 			t.addContent(seqNo, data);
 			
-			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, t.nextExpectedPacket(), Config.ACK | Config.UP, 0xffffffff);
+			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo, Config.ACK | Config.UP, 0xffffffff);
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
 			
 		} else if ((flags & Config.DOWN) == Config.DOWN) {

@@ -10,8 +10,8 @@ public class Config {
 	public static final int DATASIZE = 8192; // max. number of user data bytes in each packet
 //	static final int K = 0xffffffff;
 	public static final int K = 100;
-	public static final int SWS = 25;
-	public static final int RWS = 25;
+	public static final int SWS = 40;
+	public static final int RWS = 40;
 	public static final int FIRST_PACKET = 2;
 
 	//flags
