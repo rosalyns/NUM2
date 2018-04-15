@@ -43,7 +43,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		this.totalFileSize = fileSize;
 		
 		if (type == Task.Type.STORE_ON_CLIENT || type == Task.Type.STORE_ON_SERVER) {
-			this.storedPackets = new byte[Config.K][Config.DATASIZE];
+			this.storedPackets = new byte[Config.K][];
 			Arrays.fill(this.storedPackets, null);
 			this.downloadedFile = new File(String.format(fileName));
 			try {
@@ -64,7 +64,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				datalen = Math.min(Config.DATASIZE, this.totalFileSize - offset);
 				lastPacket = offset + datalen >= totalFileSize;
 				
-				byte[] header = Header.ftp(this.id, sequenceNumber, 0, Config.UP, 0xffffffff);
+				byte[] header = Header.ftp(this.id, sequenceNumber, 0, Config.TRANSFER, 0xffffffff);
 				byte[] data = Utils.getFileContents(this.getName(), offset);
 				byte[] pkt = Utils.mergeArrays(header, data);
 				sendPacket(pkt);
@@ -90,11 +90,6 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		}
 		System.out.println("[Hello] finished sending task!!!!!");//boolean finished
 	}
-
-//	private DatagramPacket getEmptyPacket() {
-//		byte[] data = new byte[Config.HEADERSIZE + Config.DATASIZE];
-//		return new DatagramPacket(data, data.length);
-//	}
 	
 	public void setId(int id) {
 		this.id = id;
@@ -159,7 +154,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		
 		while (storedPackets[nextExpectedPacket()] != null) {
 			System.out.println("added " + nextExpectedPacket() + " to filecontent.");
-			Utils.setContents(this.downloadedFileStream, storedPackets[nextExpectedPacket()]);
+			Utils.setFileContents(this.downloadedFileStream, storedPackets[nextExpectedPacket()]);
 			
 			if (this.downloadedFile.length() == this.totalFileSize) {	// means COMPLETE
 				lastPacket = true;
@@ -177,7 +172,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	}
 	
 	@Override
-	public void TimeoutElapsed(Object tag) { //TODO timeouts van boven LAR nog niet stoppen
+	public void TimeoutElapsed(Object tag) { 
 		byte[] pkt = (byte[]) tag;
 		
 		int seqNo = Header.twoBytes2int(pkt[4],pkt[5]);

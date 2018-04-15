@@ -1,7 +1,6 @@
 package general;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -28,54 +27,14 @@ public class Utils {
 	}
 
 	/**
-	 * Helper method to get the current process ID
-	 *
-	 * @return process id
-	 */
-	public static int getProcessId() {
-		final String jvmName = ManagementFactory.getRuntimeMXBean().getName();
-		final int index = jvmName.indexOf('@');
-
-		if (index < 1) {
-			return 0;
-		}
-
-		try {
-			return Integer.parseInt(jvmName.substring(0, index));
-		} catch (NumberFormatException e) {
-			return 0;
-		}
-	}
-
-	/**
-	 * Gets the contents of the specified file.
+	 * Get contents of the specified file starting at the specified offset.
+	 * The length of the returned array is specified in the Config file (DATASIZE)
+	 * except for the last part of the file which is as short as it needs to be.
 	 * 
-	 * @param id
-	 *            the file ID
-	 * @return the array of integers, representing the contents of the file to
-	 *         transmit
+	 * @param fileName name of the file you want to get content from.
+	 * @param offset starting point for reading contents of the file
+	 * @return
 	 */
-	public static Integer[] getFileContents(String fileName) {
-		File fileToTransmit = new File(String.format(fileName));
-		try (FileInputStream fileStream = new FileInputStream(fileToTransmit)) {
-			Integer[] fileContents = new Integer[(int) fileToTransmit.length()];
-
-			for (int i = 0; i < fileContents.length; i++) {
-				int nextByte = fileStream.read();
-				if (nextByte == -1) {
-					throw new Exception("File size is smaller than reported");
-				}
-
-				fileContents[i] = nextByte;
-			}
-			return fileContents;
-		} catch (Exception e) {
-			System.err.println(e.getMessage());
-			System.err.println(e.getStackTrace());
-			return null;
-		}
-	}
-
 	public static byte[] getFileContents(String fileName, int offset) {
 		File fileToTransmit = new File(String.format(fileName));
 		RandomAccessFile file = null;
@@ -99,8 +58,12 @@ public class Utils {
 		
 		return null;
 	}
-	
-	public static void setContents(FileOutputStream fileStream, byte[] data) {
+	/**
+	 * Adds data to the end of the specified file stream. 
+	 * @param fileStream to add data to
+	 * @param data to add
+	 */
+	public static void setFileContents(FileOutputStream fileStream, byte[] data) {
 		try {
 			for (byte fileContent : data) {
 				fileStream.write(fileContent);
@@ -137,26 +100,6 @@ public class Utils {
 		}
 
 		return first;
-	}
-
-	/**
-	 * Writes the contents of the fileContents array to the specified file.
-	 * 
-	 * @param fileContents
-	 *            the contents to write
-	 * @param id
-	 *            the file ID
-	 */
-	public static void setFileContents(byte[] fileContents, String fileName) {
-		File fileToWrite = new File(String.format(fileName, Utils.getProcessId()));
-		try (FileOutputStream fileStream = new FileOutputStream(fileToWrite)) {
-			for (byte fileContent : fileContents) {
-				fileStream.write(fileContent);
-			}
-		} catch (Exception e) {
-			System.err.println(e.getMessage());
-			System.err.println(e.getStackTrace());
-		}
 	}
 
 	/**

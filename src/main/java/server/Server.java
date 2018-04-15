@@ -10,7 +10,7 @@ import java.util.Map;
 
 import general.*;
 
-public class Server implements ITimeoutEventHandler {
+public class Server {
 
 	// --------------- MAIN METHOD ---------------- //
 	private static int serverPort = 8002;
@@ -92,7 +92,7 @@ public class Server implements ITimeoutEventHandler {
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN) {
 			int fileSize = Utils.getFileSize(new String(data));
 			
-			Task t = new Task(Task.Type.STORE_ON_CLIENT, new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
+			Task t = new Task(Task.Type.SEND_FROM_SERVER, new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;
@@ -101,7 +101,7 @@ public class Server implements ITimeoutEventHandler {
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
 			
 			t.start();
-			
+			System.out.println("REQ_DOWN");
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP) {
 			int fileSize = Header.fourBytes2int(pkt[12], pkt[13], pkt[14], pkt[15]);
 			System.out.println("File has size " + fileSize + " bytes!");
@@ -115,14 +115,16 @@ public class Server implements ITimeoutEventHandler {
 			
 			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo, Config.ACK | Config.REQ_UP, 0xffffffff);
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
-		} else if ((flags & Config.UP) == Config.UP) {
+		} else if ((flags & Config.TRANSFER) == Config.TRANSFER && (flags & Config.ACK) == Config.ACK) {
+			Task task = tasks.get(taskId);
+			task.acked(ackNo);
+		} else if ((flags & Config.TRANSFER) == Config.TRANSFER) {
 			Task t = tasks.get(taskId);
 			t.addContent(seqNo, data);
 			
-			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo, Config.ACK | Config.UP, 0xffffffff);
+			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo, Config.ACK | Config.TRANSFER, 0xffffffff);
 			this.sendPacket(header, packet.getAddress(), packet.getPort());
 			
-		} else if ((flags & Config.DOWN) == Config.DOWN) {
 		} else if ((flags & Config.STATS) == Config.STATS) {
 		}
 	}
@@ -135,19 +137,9 @@ public class Server implements ITimeoutEventHandler {
 	private void sendPacket(byte[] packet, InetAddress addr, int port) {
 		try {
 			sock.send(new DatagramPacket(packet, packet.length, addr, port));
-//			System.out.println("Sending something back to " + addr + ":" + port);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		Utils.Timeout.SetTimeout(1000, this, packet);
 	}
-	
-	@Override
-	public void TimeoutElapsed(Object tag) { //TODO make sense
-//		int numberPacketSent = ((byte[]) tag)[0];
-//		if (inSendingWindow(numberPacketSent) && !receivedAck(numberPacketSent)) { TODO check if request is still open.
-//			sendPacket((byte[]) tag);
-//		}
-		System.out.println("timeout elapsed!");
-	}
+
 }

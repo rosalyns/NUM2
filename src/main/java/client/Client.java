@@ -6,6 +6,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 
@@ -47,7 +48,7 @@ public class Client implements ITimeoutEventHandler {
 		while (keepAlive) {
 			DatagramPacket p = getEmptyPacket();
 			try {
-				System.out.println("[Client] Waiting for packets...");
+//				System.out.println("[Client] Waiting for packets...");
 				sock.receive(p);
 				handlePacket(p);
 				Thread.sleep(100);
@@ -57,12 +58,14 @@ public class Client implements ITimeoutEventHandler {
 				keepAlive = false;
 			}
 		}
-
+		Utils.Timeout.Stop();
 		System.out.println("Stopped");
+		
 	}
 	
 	private void handlePacket(DatagramPacket packet) {
 		byte[] pkt = packet.getData();
+		byte[] shorter = Arrays.copyOfRange(pkt, 0, packet.getLength());
 		int taskId = Header.twoBytes2int(pkt[0],pkt[1]);
 		int checksum = Header.twoBytes2int(pkt[2],pkt[3]);
 		int seqNo = Header.twoBytes2int(pkt[4],pkt[5]);
@@ -78,8 +81,8 @@ public class Client implements ITimeoutEventHandler {
 //		+ "\nflags: " + Integer.toBinaryString(flags) 
 //		+ "\nwindowSize: " + windowSize);
 		
-		byte[] data = new byte[pkt.length - Config.HEADERSIZE];
-		System.arraycopy(pkt, Config.HEADERSIZE, data, 0, pkt.length - Config.HEADERSIZE);
+		byte[] data = new byte[shorter.length - Config.HEADERSIZE];
+		System.arraycopy(shorter, Config.HEADERSIZE, data, 0, shorter.length - Config.HEADERSIZE);
 		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN && (flags & Config.ACK) == Config.ACK) {
 			if (!requestedDowns.isEmpty()) {
@@ -95,17 +98,16 @@ public class Client implements ITimeoutEventHandler {
 				tasks.put(t.getTaskId(), t);
 				t.start();
 			}
-			System.out.println("REQ_UP + ACK");
-		} else if ((flags & Config.UP) == Config.UP && (flags & Config.ACK) == Config.ACK) {
+		} else if ((flags & Config.TRANSFER) == Config.TRANSFER && (flags & Config.ACK) == Config.ACK) {
 			Task task = tasks.get(taskId);
 			task.acked(ackNo);
-			System.out.println("UP + ACK");
-		} else if ((flags & Config.DOWN) == Config.DOWN) {
+		} else if ((flags & Config.TRANSFER) == Config.TRANSFER) {
 			Task t = tasks.get(taskId);
 			t.addContent(seqNo, data);
 			
-			byte[] header = Header.ftp(taskId, 3, t.nextExpectedPacket(), Config.ACK | Config.DOWN, 0xffffffff);//TODO send correct ackNo (% K)
+			byte[] header = Header.ftp(taskId, 3, seqNo, Config.ACK | Config.TRANSFER, 0xffffffff);//TODO send correct ackNo (% K)
 			this.sendPacket(header);
+			
 			System.out.println("DOWN");
 		} else if ((flags & Config.STATS) == Config.STATS) {
 			System.out.println("Packet has STATS flag set"); 
@@ -151,9 +153,11 @@ public class Client implements ITimeoutEventHandler {
 	
 	public void downloadFile(String fileName) {
 		int sequenceNumber = 3;
-		byte[] pkt = Header.ftp(0, sequenceNumber, 0, Config.REQ_DOWN,	0xffffffff);
+		byte[] header = Header.ftp(0, sequenceNumber, 0, Config.REQ_DOWN,	0xffffffff);
+		byte[] data = fileName.getBytes();
+		byte[] pkt = Utils.mergeArrays(header, data);
 		
-		Task t = new Task(Task.Type.STORE_ON_CLIENT, "clientDownload-"+fileName, sock, host, port, 0); //TODO think about fileSize (last param)
+		Task t = new Task(Task.Type.STORE_ON_CLIENT, "clientDownload-"+fileName, sock, host, port, 200000000); //TODO think about fileSize (last param)
 		requestedDowns.add(t);
 		
 		sendPacket(pkt);

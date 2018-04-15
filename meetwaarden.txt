@@ -1,4 +1,11 @@
+-- VERSIE 1 --
 
+windows 20, K 500
 10,4 MB (pic10.jpg)
 13:50 begin
 14:03 eind
+
+windows 200, K 500
+10,4 MB (pic10.jpg)
+14:14 begin
+oneindig

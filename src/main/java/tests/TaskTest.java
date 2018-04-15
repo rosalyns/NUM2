@@ -15,7 +15,6 @@ class TaskTest {
 
 	@BeforeEach
 	void setUp() throws Exception {
-		//public Task(Task.Type type, String fileName, DatagramSocket sock, InetAddress addr, int port, int fileSize) {
 		storeTask = new Task(Task.Type.STORE_ON_CLIENT, "testoutputfile1.png", null, null, 0, 248);
 		sendTask = new Task(Task.Type.SEND_FROM_CLIENT, "file1.png", null, null, 0, 248);
 		storeTask.acked(4);
