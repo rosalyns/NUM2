@@ -18,14 +18,28 @@ class TaskTest {
 		//public Task(Task.Type type, String fileName, DatagramSocket sock, InetAddress addr, int port, int fileSize) {
 		storeTask = new Task(Task.Type.STORE_ON_CLIENT, "testoutputfile1.png", null, null, 0, 248);
 		sendTask = new Task(Task.Type.SEND_FROM_CLIENT, "file1.png", null, null, 0, 248);
-		storeTask.acked(0);
-		storeTask.acked(1);
-		storeTask.acked(2);
+		storeTask.acked(4);
+		storeTask.acked(5);
+		storeTask.acked(6);
 	}
 
 	@Test
 	final void testInReceivingWindow() {
-		assertTrue(storeTask.inReceivingWindow(21));
+		byte[] data1 = new byte[4];
+		Arrays.fill(data1, (byte) 3);
+		storeTask.addContent(2, data1);
+		storeTask.addContent(3, data1);
+		storeTask.addContent(4, data1);
+		storeTask.addContent(5, data1);
+		storeTask.addContent(6, data1);
+		
+		assertFalse(storeTask.inReceivingWindow(6));
+		assertTrue(storeTask.inReceivingWindow(7));
+		
+		assertTrue(storeTask.inReceivingWindow(26));
+		assertFalse(storeTask.inReceivingWindow(27));
+		
+		
 	}
 
 	@Test

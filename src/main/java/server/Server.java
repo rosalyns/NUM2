@@ -46,7 +46,7 @@ public class Server implements ITimeoutEventHandler {
 		while (keepAlive) {
 			DatagramPacket p = getEmptyPacket();
 			try {
-				System.out.println("[Server] Waiting for packets...");
+//				System.out.println("[Server] Waiting for packets...");
 				sock.receive(p);
 				handlePacket(p);
 //				Thread.sleep(100);
@@ -135,7 +135,7 @@ public class Server implements ITimeoutEventHandler {
 	private void sendPacket(byte[] packet, InetAddress addr, int port) {
 		try {
 			sock.send(new DatagramPacket(packet, packet.length, addr, port));
-			System.out.println("Sending something back to " + addr + ":" + port);
+//			System.out.println("Sending something back to " + addr + ":" + port);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

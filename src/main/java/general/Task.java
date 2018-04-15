@@ -153,26 +153,13 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	}
 	
 	public void addContent(int seqNo, byte[] data) {
-		if (seqNo == nextExpectedPacket()) {
-			Utils.setContents(this.downloadedFileStream, data);
-			System.out.println("added " + seqNo + " to filecontent.");
-			if (this.downloadedFile.length() == this.totalFileSize) {	// means COMPLETE
-				lastPacket = true;
-				System.out.println("finished file..");
-				try {
-					this.downloadedFileStream.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-			LFR++;
-		} else if (inReceivingWindow(seqNo)) {
+		if (inReceivingWindow(seqNo)) {
 			storedPackets[seqNo] = data;
 		}
 		
 		while (storedPackets[nextExpectedPacket()] != null) {
-			Utils.setContents(this.downloadedFileStream, storedPackets[nextExpectedPacket()]);
 			System.out.println("added " + nextExpectedPacket() + " to filecontent.");
+			Utils.setContents(this.downloadedFileStream, storedPackets[nextExpectedPacket()]);
 			
 			if (this.downloadedFile.length() == this.totalFileSize) {	// means COMPLETE
 				lastPacket = true;
@@ -185,7 +172,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				}
 			}
 			storedPackets[nextExpectedPacket()] = null;
-			LFR++;
+			LFR = (LFR + 1) % Config.K;
 		}
 	}
 	
