@@ -44,6 +44,7 @@ public class Server {
 		this.allFiles = folder.listFiles();
 		this.port = portArg;
 		this.tasks = new HashMap<Integer, Task>();
+		Utils.Timeout.Start();
 	}
 
 	public void run() throws IOException {

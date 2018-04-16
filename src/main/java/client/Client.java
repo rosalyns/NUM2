@@ -102,7 +102,7 @@ public class Client implements ITimeoutEventHandler {
 		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN && (flags & Config.ACK) == Config.ACK) {
 			int fileSize = Header.fourBytes2int(pkt[Config.FTP_HEADERSIZE],pkt[Config.FTP_HEADERSIZE + 1],pkt[Config.FTP_HEADERSIZE+2],pkt[Config.FTP_HEADERSIZE+3]);
-
+			System.out.println("filesize is " + fileSize);
 			if (!requestedDowns.isEmpty()) {
 				Task t = requestedDowns.poll();
 				t.setFileSize(fileSize);
