@@ -81,10 +81,10 @@ public class Server {
 		checksumPkt[2] = 0x00;
 		checksumPkt[3] = 0x00;
 		if (!Header.checksumCorrect(checksumPkt, checksum)) {
-			System.out.println("checksum not correct");
-//			return;
+//			System.out.println("checksum not correct");
+			return;
 		} else {
-			System.out.println("checksum correct");
+//			System.out.println("checksum correct");
 		}
 		
 		//only REQ_UP has extra header that contains the size of the file the client wants to upload

@@ -7,7 +7,7 @@ import org.junit.Test;
 
 import java.util.Arrays;
 
-
+import general.Config;
 import general.Task;
 
 public class TaskTest {
@@ -18,9 +18,9 @@ public class TaskTest {
 	public void setUp() throws Exception {
 		storeTask = new Task(Task.Type.STORE_ON_CLIENT, "testoutputfile1.png", null, null, 0, 248);
 		sendTask = new Task(Task.Type.SEND_FROM_CLIENT, "file1.png", null, null, 0, 248);
-		storeTask.acked(4);
-		storeTask.acked(5);
-		storeTask.acked(6);
+		sendTask.acked(2);
+		sendTask.acked(3);
+		sendTask.acked(4);
 	}
 
 	@Test
@@ -36,9 +36,8 @@ public class TaskTest {
 		assertFalse(storeTask.inReceivingWindow(6));
 		assertTrue(storeTask.inReceivingWindow(7));
 		
-		assertTrue(storeTask.inReceivingWindow(26));
-		assertFalse(storeTask.inReceivingWindow(27));
-		
+		assertTrue(storeTask.inReceivingWindow(6+Config.RWS));
+		assertFalse(storeTask.inReceivingWindow(7+Config.RWS));
 		
 	}
 
@@ -59,7 +58,7 @@ public class TaskTest {
 	
 	@Test
 	public void testNextExpectedAck() {
-		assertEquals(3, storeTask.nextExpectedAck());
+		assertEquals(5, sendTask.nextExpectedAck());
 	}
 
 	@Test

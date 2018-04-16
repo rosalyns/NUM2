@@ -101,18 +101,19 @@ public class Client implements ITimeoutEventHandler {
 //		+ "\nwindowSize: " + windowSize);
 		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN && (flags & Config.ACK) == Config.ACK) {
+			int fileSize = Header.fourBytes2int(pkt[Config.FTP_HEADERSIZE],pkt[Config.FTP_HEADERSIZE + 1],pkt[Config.FTP_HEADERSIZE+2],pkt[Config.FTP_HEADERSIZE+3]);
+
 			if (!requestedDowns.isEmpty()) {
 				Task t = requestedDowns.poll();
+				t.setFileSize(fileSize);
 				t.setId(taskId);
 				tasks.put(t.getTaskId(), t);
 			}
 			System.out.println("REQ_DOWN + ACK");
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP && (flags & Config.ACK) == Config.ACK) {
-			int fileSize = Header.fourBytes2int(pkt[Config.FTP_HEADERSIZE],pkt[Config.FTP_HEADERSIZE + 1],pkt[Config.FTP_HEADERSIZE+2],pkt[Config.FTP_HEADERSIZE+3]);
 			if (!requestedUps.isEmpty()) {
 				Task t = requestedUps.poll();
 				t.setId(taskId);
-				t.setFileSize(fileSize);
 				tasks.put(t.getTaskId(), t);
 				t.start();
 			}

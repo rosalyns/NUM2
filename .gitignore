@@ -1,6 +1,8 @@
 build
 /.gradle/
 /.idea/
+/files
+/downloads
 **/*.tif
 **/*.png
 **/*.jpg

@@ -14,7 +14,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	public enum Type {
 		STORE_ON_CLIENT, SEND_FROM_CLIENT, STORE_ON_SERVER, SEND_FROM_SERVER
 	}
-	public static boolean actuallyStoreFile = true;
+	public static int retransmissions = 0;
 
 	private int id;
 	private Task.Type type;
@@ -102,14 +102,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		}
 	}
 
-	private void sendPacket(byte[] packet) {
-		try {
-			sock.send(new DatagramPacket(packet, packet.length, addr, port));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		Utils.Timeout.SetTimeout(3000, this, packet);
-	}
+	
 
 	private boolean inSendingWindow(int packetNumber) {
 		return (LAR < packetNumber && packetNumber <= (LAR + Config.SWS))
@@ -178,6 +171,15 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		}
 	}
 	
+	private void sendPacket(byte[] packet) {
+		try {
+			sock.send(new DatagramPacket(packet, packet.length, addr, port));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		Utils.Timeout.SetTimeout(3000, this, packet);
+	}
+	
 	@Override
 	public void TimeoutElapsed(Object tag) { 
 		byte[] pkt = (byte[]) tag;
@@ -186,6 +188,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		if (inSendingWindow(seqNo) && !receivedAck(seqNo)) {
 			System.out.println("retransmission of packet " + seqNo);
 			sendPacket(pkt);
+			retransmissions++;
 		}
 	}
 
