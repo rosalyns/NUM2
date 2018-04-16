@@ -1,11 +1,12 @@
 package tests;
+import static org.junit.Assert.*;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.Before;
+import org.junit.Test;
+
 
 import java.util.Arrays;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 import general.Task;
 
@@ -13,7 +14,7 @@ class TaskTest {
 	private Task storeTask;
 	private Task sendTask;
 
-	@BeforeEach
+	@Before
 	void setUp() throws Exception {
 		storeTask = new Task(Task.Type.STORE_ON_CLIENT, "testoutputfile1.png", null, null, 0, 248);
 		sendTask = new Task(Task.Type.SEND_FROM_CLIENT, "file1.png", null, null, 0, 248);

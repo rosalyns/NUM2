@@ -1,18 +1,17 @@
 package tests;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.Assert.*;
 
 import java.io.File;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.Before;
+import org.junit.Test;
 
 import general.Config;
 import general.Utils;
 
 class UtilsTest {
 
-	@BeforeEach
+	@Before
 	void setUp() throws Exception {
 		
 	}
@@ -73,3 +72,4 @@ class UtilsTest {
 	}
 
 }
+
