@@ -4,9 +4,12 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.InterfaceAddress;
+import java.net.NetworkInterface;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedList;
 
@@ -14,10 +17,20 @@ import general.*;
 
 public class Client implements ITimeoutEventHandler {
 
+	// ---------- START CLIENT ------------ //
+	
+	private static int serverPort = 8002;
+	
+	public static void main(String[] args) {
+        try {
+			Client client = new Client(serverPort);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+    }
+	
 	// server address
-	private InetAddress host;
-
-	// server port
+	private InetAddress serverIp;
 	private int port;
 	private DatagramSocket sock;
 	private TUI tui;
@@ -30,20 +43,98 @@ public class Client implements ITimeoutEventHandler {
 	private static boolean keepAlive = true;
 	private static int RANDOM_SEQ = 3; //TODO not random?
 	
-	public Client(InetAddress serverAddress, int serverPort) throws IOException {
-		this.host = serverAddress;
+	public Client(int serverPort) throws IOException {
 		this.port = serverPort;
 		this.tasks = new HashMap<Integer, Task>();
 		this.requestedUps = new LinkedList<>();
 		this.requestedDowns = new LinkedList<>();
 		this.sock = new DatagramSocket(52123);
+		this.sock.setBroadcast(true);
 		this.tui = new TUI(this, System.in);
 		Thread tuiThread = new Thread(tui);
 		tuiThread.start();
 		Utils.Timeout.Start();
+		discover();
 		receive();
 	}
+	
+	public void setServerIp(InetAddress addr) {
+		this.serverIp = addr;
+	}
+	
+	DatagramSocket c;
 
+	public void discover() {
+		try {
+			// Open a random port to send the package
+			c = new DatagramSocket();
+			c.setBroadcast(true);
+
+			byte[] sendData = "DISCOVER_REQUEST".getBytes();
+
+			// Try the 255.255.255.255 first
+			try {
+				DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length,
+						InetAddress.getByName("255.255.255.255"), 8888);
+				c.send(sendPacket);
+				System.out.println(getClass().getName() + ">>> Request packet sent to: 255.255.255.255 (DEFAULT)");
+			} catch (Exception e) {
+			}
+
+			// Broadcast the message over all the network interfaces
+			Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+			while (interfaces.hasMoreElements()) {
+				NetworkInterface networkInterface = interfaces.nextElement();
+
+				if (networkInterface.isLoopback() || !networkInterface.isUp()) {
+					continue; // Don't want to broadcast to the loopback interface
+				}
+
+				for (InterfaceAddress interfaceAddress : networkInterface.getInterfaceAddresses()) {
+					InetAddress broadcast = interfaceAddress.getBroadcast();
+					if (broadcast == null) {
+						continue;
+					}
+
+					// Send the broadcast package!
+					try {
+						DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, broadcast, 8888);
+						c.send(sendPacket);
+					} catch (Exception e) {
+					}
+
+					System.out.println(getClass().getName() + ">>> Request packet sent to: "
+							+ broadcast.getHostAddress() + "; Interface: " + networkInterface.getDisplayName());
+				}
+			}
+
+			System.out.println(
+					getClass().getName() + ">>> Done looping over all network interfaces. Now waiting for a reply!");
+
+			// Wait for a response
+			byte[] recvBuf = new byte[15000];
+			DatagramPacket receivePacket = new DatagramPacket(recvBuf, recvBuf.length);
+			c.receive(receivePacket);
+
+			// We have a response
+			System.out.println(getClass().getName() + ">>> Broadcast response from server: "
+					+ receivePacket.getAddress().getHostAddress());
+
+			// Check if the message is correct
+			String message = new String(receivePacket.getData()).trim();
+
+			if (message.contains("DISCOVER_RESPONSE") && (message.toLowerCase().contains("raspberry pi")
+					|| message.toLowerCase().contains("raspberrypi"))) {
+				setServerIp(receivePacket.getAddress());
+				System.out.println("discovered the pi!");
+			}
+
+			// Close the port!
+			c.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 	
 	public void receive() {
 		while (keepAlive) {
@@ -170,7 +261,7 @@ public class Client implements ITimeoutEventHandler {
 		byte[] pktWithChecksum = Header.addChecksum(pkt, Header.crc16(pkt));
 		System.out.println("Sending packet with seq_no " + RANDOM_SEQ + " and fileSize " + fileSize);
 		
-		Task t = new Task(Task.Type.SEND_FROM_CLIENT, "downloads/"+fileName, sock, host, port, fileSize);
+		Task t = new Task(Task.Type.SEND_FROM_CLIENT, "downloads/"+fileName, sock, serverIp, port, fileSize);
 		requestedUps.add(t);
 		
 		sendPacket(pktWithChecksum);
@@ -180,7 +271,7 @@ public class Client implements ITimeoutEventHandler {
 		byte[] header = Header.ftp(0, RANDOM_SEQ, 0, Config.REQ_DOWN,	0xffffffff);
 		byte[] pkt = Utils.mergeArrays(header, fileName.getBytes());
 		byte[] pktWithChecksum = Header.addChecksum(pkt, Header.crc16(pkt));
-		Task t = new Task(Task.Type.STORE_ON_CLIENT, "downloads/"+fileName, sock, host, port, 200000000); //TODO think about fileSize (last param)
+		Task t = new Task(Task.Type.STORE_ON_CLIENT, "downloads/"+fileName, sock, serverIp, port, 200000000); //TODO think about fileSize (last param)
 		requestedDowns.add(t);
 		
 		sendPacket(pktWithChecksum);
@@ -193,7 +284,7 @@ public class Client implements ITimeoutEventHandler {
 	
 	private void sendPacket(byte[] packet) {
 		try {
-			sock.send(new DatagramPacket(packet, packet.length, host, port));
+			sock.send(new DatagramPacket(packet, packet.length, serverIp, port));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

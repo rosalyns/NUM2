@@ -15,8 +15,8 @@ public class Server {
 
 	// --------------- MAIN METHOD ---------------- //
 	private static int serverPort = 8002;
-	private static String path = "home/pi/files/";
-//	private static String path = "/home/pi/files/"; // PIpath
+//	private static String path = "home/pi/files/";
+	private static String path = "/home/pi/files/"; // PIpath
 
 	public static void main(String[] args) {
 		try {
@@ -44,6 +44,9 @@ public class Server {
 		this.allFiles = folder.listFiles();
 		this.port = portArg;
 		this.tasks = new HashMap<Integer, Task>();
+		Thread discoveryThread = new Thread(DiscoveryThread.getInstance());
+		discoveryThread.start();
+		
 		Utils.Timeout.Start();
 	}
 
@@ -56,6 +59,7 @@ public class Server {
 			try {
 //				System.out.println("[Server] Waiting for packets...");
 				sock.receive(p);
+				
 				handlePacket(p);
 //				Thread.sleep(100);
 
@@ -70,6 +74,17 @@ public class Server {
 	
 	
 	private void handlePacket(DatagramPacket packet) {
+		
+		String packetString = new String(packet.getData()).trim();
+		if (packetString.equals("DISCOVER_REQUEST")) {
+			byte[] sendData = "DISCOVER_RESPONSE Hello, I'm a raspberry Pi!".getBytes();
+			this.sendPacket(sendData, packet.getAddress(), packet.getPort());
+
+			System.out.println(
+					getClass().getName() + ">>>Sent packet to: " + packet.getAddress().getHostAddress());
+		}
+		
+		
 		byte[] pkt = Arrays.copyOfRange(packet.getData(), 0, packet.getLength());
 		int taskId = Header.twoBytes2int(pkt[0],pkt[1]);
 		int checksum = Header.twoBytes2int(pkt[2],pkt[3]);

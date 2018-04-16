@@ -39,7 +39,7 @@ remotes {
         role 'masterNode'
         host = '192.168.1.1'
         user = 'pi'
-        password = 'raspberry'
+        password = 'banaantjes'
     }
 }
 
