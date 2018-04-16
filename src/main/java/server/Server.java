@@ -16,7 +16,7 @@ public class Server {
 	// --------------- MAIN METHOD ---------------- //
 	private static int serverPort = 8002;
 	private static String path = "home/pi/files/";
-//	private static String path = "/home/pi/files/"; // PI - path
+//	private static String path = "/home/pi/files/"; // PIpath
 
 	public static void main(String[] args) {
 		try {

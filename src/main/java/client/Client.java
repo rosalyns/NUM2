@@ -146,12 +146,14 @@ public class Client implements ITimeoutEventHandler {
 	
 	public void askForFiles() {
 		byte[] header = Header.ftp(0, RANDOM_SEQ, 0, Config.LIST, 0xffffffff);
-		sendPacket(header);
+		byte[] pktWithChecksum = Header.addChecksum(header, Header.crc16(header));
+		sendPacket(pktWithChecksum);
 	}
 	
 	public void askForStatistics() {
 		byte[] header = Header.ftp(0, RANDOM_SEQ, 0, Config.STATS, 0xffffffff);
-		sendPacket(header);
+		byte[] pktWithChecksum = Header.addChecksum(header, Header.crc16(header));
+		sendPacket(pktWithChecksum);
 	}
 	
 	public void askForProgress() {
