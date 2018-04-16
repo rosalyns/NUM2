@@ -10,12 +10,12 @@ import java.util.Arrays;
 
 import general.Task;
 
-class TaskTest {
+public class TaskTest {
 	private Task storeTask;
 	private Task sendTask;
 
 	@Before
-	void setUp() throws Exception {
+	public void setUp() throws Exception {
 		storeTask = new Task(Task.Type.STORE_ON_CLIENT, "testoutputfile1.png", null, null, 0, 248);
 		sendTask = new Task(Task.Type.SEND_FROM_CLIENT, "file1.png", null, null, 0, 248);
 		storeTask.acked(4);
@@ -24,7 +24,7 @@ class TaskTest {
 	}
 
 	@Test
-	final void testInReceivingWindow() {
+	public void testInReceivingWindow() {
 		byte[] data1 = new byte[4];
 		Arrays.fill(data1, (byte) 3);
 		storeTask.addContent(2, data1);
@@ -43,7 +43,7 @@ class TaskTest {
 	}
 
 	@Test
-	final void testNextExpectedPacket() {
+	public void testNextExpectedPacket() {
 		//first addContent
 		byte[] data1 = new byte[4];
 		byte[] data2 = new byte[4]; 
@@ -58,12 +58,12 @@ class TaskTest {
 	}
 	
 	@Test
-	final void testNextExpectedAck() {
+	public void testNextExpectedAck() {
 		assertEquals(3, storeTask.nextExpectedAck());
 	}
 
 	@Test
-	final void testAddContent() {
+	public void testAddContent() {
 		byte[] data1 = new byte[4];
 		Arrays.fill(data1, (byte) 3);
 		assertEquals(0, storeTask.getCurrentFileSize());
@@ -76,29 +76,29 @@ class TaskTest {
 	}
 
 	@Test
-	final void testTimeoutElapsed() {
+	public void testTimeoutElapsed() {
 		fail("Not yet implemented"); // TODO write test
 	}
 
 	@Test
-	final void testSetAndGetTaskId() {
+	public void testSetAndGetTaskId() {
 		sendTask.setId(5);
 		assertEquals(5, sendTask.getTaskId());
 	}
 
 	@Test
-	final void testGetType() {
+	public void testGetType() {
 		assertEquals(Task.Type.SEND_FROM_CLIENT, sendTask.getType());
 		assertEquals(Task.Type.STORE_ON_CLIENT, storeTask.getType());
 	}
 
 	@Test
-	final void testGetTotalFileSize() {
+	public void testGetTotalFileSize() {
 		assertEquals(248, sendTask.getTotalFileSize());
 	}
 	
 	@Test
-	final void testGetCurrentFileSize() {
+	public void testGetCurrentFileSize() {
 		byte[] data1 = new byte[4];
 		Arrays.fill(data1, (byte) 3);
 		assertEquals(0, storeTask.getCurrentFileSize());
@@ -111,7 +111,7 @@ class TaskTest {
 	}
 	
 	@Test
-	final void testFinished() {
+	public void testFinished() {
 		Task task = new Task(Task.Type.STORE_ON_CLIENT, "testoutputfile2.png", null, null, 0, 248);
 		byte[] data = new byte[200];
 		byte[] data2 = new byte[48];

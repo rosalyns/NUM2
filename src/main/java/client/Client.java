@@ -73,8 +73,24 @@ public class Client implements ITimeoutEventHandler {
 		byte flags = pkt[8];
 		int windowSize = Header.twoBytes2int(pkt[10],pkt[11]);
 		
-		byte[] data = new byte[pkt.length - Config.FTP_HEADERSIZE];
-		System.arraycopy(pkt, Config.FTP_HEADERSIZE, data, 0, pkt.length - Config.FTP_HEADERSIZE);
+		byte[] checksumPkt = Arrays.copyOf(pkt, pkt.length);
+		checksumPkt[2] = 0x00;
+		checksumPkt[3] = 0x00;   
+		if (!Header.checksumCorrect(checksumPkt, checksum)) {
+			System.out.println("checksum not correct");
+//			return;
+		} else {
+			System.out.println("checksum correct");
+		}
+		
+		byte[] data;
+		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN && (flags & Config.ACK) == Config.ACK) {
+			data = new byte[pkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE];
+			System.arraycopy(pkt, Config.FTP_HEADERSIZE+Config.FILESIZE_HEADERSIZE, data, 0, pkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE);
+		} else {
+			data = new byte[pkt.length - Config.FTP_HEADERSIZE];
+			System.arraycopy(pkt, Config.FTP_HEADERSIZE, data, 0, pkt.length - Config.FTP_HEADERSIZE);
+		}
 		
 //		System.out.println("[Client] Packet received from " + packet.getSocketAddress() 
 //		+ " :\ntaskID: "  + taskId 
@@ -92,9 +108,11 @@ public class Client implements ITimeoutEventHandler {
 			}
 			System.out.println("REQ_DOWN + ACK");
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP && (flags & Config.ACK) == Config.ACK) {
+			int fileSize = Header.fourBytes2int(pkt[Config.FTP_HEADERSIZE],pkt[Config.FTP_HEADERSIZE + 1],pkt[Config.FTP_HEADERSIZE+2],pkt[Config.FTP_HEADERSIZE+3]);
 			if (!requestedUps.isEmpty()) {
 				Task t = requestedUps.poll();
 				t.setId(taskId);
+				t.setFileSize(fileSize);
 				tasks.put(t.getTaskId(), t);
 				t.start();
 			}
@@ -106,7 +124,8 @@ public class Client implements ITimeoutEventHandler {
 			t.addContent(seqNo, data);
 			
 			byte[] header = Header.ftp(taskId, 3, seqNo, Config.ACK | Config.TRANSFER, 0xffffffff);//TODO send correct ackNo (% K)
-			this.sendPacket(header);
+			byte[] pktWithChecksum = Header.addChecksum(header, Header.crc16(header));
+			this.sendPacket(pktWithChecksum);
 			
 		} else if ((flags & Config.STATS) == Config.STATS) {
 			System.out.println("Packet has STATS flag set"); 
@@ -145,23 +164,23 @@ public class Client implements ITimeoutEventHandler {
 		byte[] header = Header.ftp(0, RANDOM_SEQ, 0,Config.REQ_UP, 0xffffffff);
 		byte[] sizeHeader = Header.fileSize(fileSize);
 		byte[] pkt = Utils.mergeArrays(header, sizeHeader, fileName.getBytes());
+		byte[] pktWithChecksum = Header.addChecksum(pkt, Header.crc16(pkt));
 		System.out.println("Sending packet with seq_no " + RANDOM_SEQ + " and fileSize " + fileSize);
 		
-		Task t = new Task(Task.Type.SEND_FROM_CLIENT, fileName, sock, host, port, fileSize);
+		Task t = new Task(Task.Type.SEND_FROM_CLIENT, "downloads/"+fileName, sock, host, port, fileSize);
 		requestedUps.add(t);
 		
-		sendPacket(pkt);
+		sendPacket(pktWithChecksum);
 	}
 	
 	public void downloadFile(String fileName) {
 		byte[] header = Header.ftp(0, RANDOM_SEQ, 0, Config.REQ_DOWN,	0xffffffff);
-		byte[] data = fileName.getBytes();
-		byte[] pkt = Utils.mergeArrays(header, data);
-		
+		byte[] pkt = Utils.mergeArrays(header, fileName.getBytes());
+		byte[] pktWithChecksum = Header.addChecksum(pkt, Header.crc16(pkt));
 		Task t = new Task(Task.Type.STORE_ON_CLIENT, "downloads/"+fileName, sock, host, port, 200000000); //TODO think about fileSize (last param)
 		requestedDowns.add(t);
 		
-		sendPacket(pkt);
+		sendPacket(pktWithChecksum);
 	}
 	
 	private DatagramPacket getEmptyPacket() {

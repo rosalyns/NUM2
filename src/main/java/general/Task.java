@@ -67,7 +67,8 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				byte[] header = Header.ftp(this.id, sequenceNumber, 0, Config.TRANSFER, 0xffffffff);
 				byte[] data = Utils.getFileContents(this.getName(), offset);
 				byte[] pkt = Utils.mergeArrays(header, data);
-				sendPacket(pkt);
+				byte[] pktWithChecksum = Header.addChecksum(pkt, Header.crc16(pkt));
+				sendPacket(pktWithChecksum);
 				
 				System.out.println("Sending packet with seq_no " + sequenceNumber);
 				sequenceNumber = Utils.incrementNumberModuloK(sequenceNumber);
@@ -93,6 +94,12 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	
 	public void setId(int id) {
 		this.id = id;
+	}
+	
+	public void setFileSize(int size) {
+		if (this.type == Task.Type.STORE_ON_CLIENT) {
+			this.totalFileSize = size;
+		}
 	}
 
 	private void sendPacket(byte[] packet) {

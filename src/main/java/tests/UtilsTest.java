@@ -9,20 +9,20 @@ import org.junit.Test;
 import general.Config;
 import general.Utils;
 
-class UtilsTest {
+public class UtilsTest {
 
 	@Before
-	void setUp() throws Exception {
+	public void setUp() throws Exception {
 		
 	}
 
 	@Test
-	final void testGetFileContentsByte() {
-		byte[] file1 = Utils.getFileContents("file5.png", 0);
+	public void testGetFileContentsByte() {
+		byte[] file1 = Utils.getFileContents("files/file5.png", 0);
 		assertEquals(Config.DATASIZE, file1.length);
-		byte[] file2 = Utils.getFileContents("file5.png", Config.DATASIZE);
+		byte[] file2 = Utils.getFileContents("files/file5.png", Config.DATASIZE);
 		assertEquals(file1.length, file2.length);
-		byte[] file3 = Utils.getFileContents("file5.png", 2*Config.DATASIZE);
+		byte[] file3 = Utils.getFileContents("files/file5.png", 2*Config.DATASIZE);
 		
 		byte[] file1and2 = Utils.mergeArrays(file1, file2);
 		byte[] file2and3 = Utils.mergeArrays(file2, file3);
@@ -31,26 +31,26 @@ class UtilsTest {
 	}
 	
 	@Test
-	final void testGetFileContentsByteEndOfFile() {
-		File file = new File("file5.png");
-		byte[] file1 = Utils.getFileContents("file5.png", (int) file.length() - 100);
+	public void testGetFileContentsByteEndOfFile() {
+		File file = new File("files/file5.png");
+		byte[] file1 = Utils.getFileContents("files/file5.png", (int) file.length() - 100);
 		assertEquals(100, file1.length);
 	}
 
 	@Test
-	final void testGetFileSize() {
-		assertEquals(248, Utils.getFileSize("file1.png"));
-		assertEquals(2085, Utils.getFileSize("file2.png"));
-		assertEquals(6267, Utils.getFileSize("file3.png"));
-		assertEquals(21067, Utils.getFileSize("file4.png"));
-		assertEquals(53228, Utils.getFileSize("file5.png"));
-		assertEquals(216583872, Utils.getFileSize("grand_tour.tif"));
+	public void testGetFileSize() {
+		assertEquals(248, Utils.getFileSize("files/file1.png"));
+		assertEquals(2085, Utils.getFileSize("files/file2.png"));
+		assertEquals(6267, Utils.getFileSize("files/file3.png"));
+		assertEquals(21067, Utils.getFileSize("files/file4.png"));
+		assertEquals(53228, Utils.getFileSize("files/file5.png"));
+		assertEquals(216583872, Utils.getFileSize("files/grand_tour.tif"));
 	}
 
 	@Test
-	final void testMergeArrays() {
-		byte[] file1 = Utils.getFileContents("file5.png", 0);
-		byte[] file2 = Utils.getFileContents("file5.png", Config.DATASIZE);
+	public void testMergeArrays() {
+		byte[] file1 = Utils.getFileContents("files/file5.png", 0);
+		byte[] file2 = Utils.getFileContents("files/file5.png", Config.DATASIZE);
 		
 		assertNotEquals(Utils.mergeArrays(file1,file2), Utils.mergeArrays(file2, file1));
 		
@@ -67,7 +67,7 @@ class UtilsTest {
 	}
 
 	@Test
-	final void testSetFileContents() {
+	public void testSetFileContents() {
 		fail("Not yet implemented"); // TODO write test
 	}
 

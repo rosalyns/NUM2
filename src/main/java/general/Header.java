@@ -74,4 +74,33 @@ public class Header {
 		return ((a & 0xFF) << 8) | (b & 0xFF);
 	}
 	
+	public static boolean checksumCorrect(byte[] pkt, int checksum) {
+		return Header.crc16(pkt) == checksum;
+	}
+	
+	/**
+	 * Calculcate CRC of header + data.
+	 */
+	public static int crc16(final byte[] buffer) {
+	    int crc = 0xFFFF;
+
+	    for (int j = 0; j < buffer.length ; j++) {
+	        crc = ((crc  >>> 8) | (crc  << 8) )& 0xffff;
+	        crc ^= (buffer[j] & 0xff);//byte to int, trunc sign
+	        crc ^= ((crc & 0xff) >> 4);
+	        crc ^= (crc << 12) & 0xffff;
+	        crc ^= ((crc & 0xFF) << 5) & 0xffff;
+	    }
+	    crc &= 0xffff;
+	    return crc;
+	}
+	
+	public static byte[] addChecksum(byte[] pkt, int checksum) {
+		byte[] sum = int2twoBytes(checksum);
+		pkt[2] = sum[0];
+		pkt[3] = sum[1];
+		return pkt;
+	}
+	
+	
 }
