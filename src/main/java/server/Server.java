@@ -45,7 +45,9 @@ public class Server {
 		this.port = portArg;
 		this.tasks = new HashMap<Integer, Task>();
 		Thread discoveryThread = new Thread(DiscoveryThread.getInstance());
+		Thread writingThread = new Thread(WritingThread.getInstance());
 		discoveryThread.start();
+		writingThread.start();
 		
 		Utils.Timeout.Start();
 	}
@@ -122,6 +124,7 @@ public class Server {
 		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN) {
 			int fileSize = Utils.getFileSize(path + new String(data));
+			System.out.println("Filesize is " + fileSize);
 			File file = new File(path + new String(data));
 			Task t = new Task(Task.Type.SEND_FROM_SERVER, file, sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
@@ -164,7 +167,8 @@ public class Server {
 		} else if ((flags & Config.TRANSFER) == Config.TRANSFER) {
 			
 			Task t = tasks.get(taskId);
-			t.addContent(seqNo, data);
+			WritingThread.getInstance().addToQueue(new DataTuple(t, seqNo, data));
+//			t.addContent(seqNo, data);
 			
 			byte[] header = Header.ftp(t.getTaskId(), RANDOM_SEQ, seqNo, Config.ACK | Config.TRANSFER, 0xffffffff);
 			byte[] pktWithChecksum = Header.addChecksum(header, Header.crc16(header));

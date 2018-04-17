@@ -20,6 +20,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 
 import general.*;
+import server.DataTuple;
+import server.WritingThread;
 
 public class Client implements ITimeoutEventHandler {
 
@@ -58,6 +60,9 @@ public class Client implements ITimeoutEventHandler {
 		this.sock = new DatagramSocket(52123);
 		this.sock.setBroadcast(true);
 		this.view = new FTPGUI(this);
+		
+		Thread writingThread = new Thread(WritingThread.getInstance());
+		writingThread.start();
 	}
 	
 	public void run() {
@@ -152,9 +157,8 @@ public class Client implements ITimeoutEventHandler {
 			try {
 				sock.receive(p);
 				handlePacket(p);
-				Thread.sleep(100);
 
-			} catch (IOException | InterruptedException e) {
+			} catch (IOException e) {
 				// Thread.currentThread().interrupt();
 				keepAlive = false;
 			}
@@ -233,9 +237,9 @@ public class Client implements ITimeoutEventHandler {
 			t.updateProgressGUI();
 		} else if ((flags & Config.TRANSFER) == Config.TRANSFER) {
 			Task t = tasks.get(taskId);
-			t.addContent(seqNo, data);
+//			t.addContent(seqNo, data);
 			t.updateProgressGUI();
-			
+			WritingThread.getInstance().addToQueue(new DataTuple(t, seqNo, data));
 			byte[] header = Header.ftp(taskId, 3, seqNo, Config.ACK | Config.TRANSFER, 0xffffffff);//TODO send correct ackNo (% K)
 			byte[] pktWithChecksum = Header.addChecksum(header, Header.crc16(header));
 			this.sendPacket(pktWithChecksum);

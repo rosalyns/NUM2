@@ -1,6 +1,7 @@
 package general;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -10,6 +11,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.locks.ReentrantLock;
 
 import general.Config;
@@ -25,12 +27,14 @@ public class Utils {
 	}
 
 	/**
-	 * Get contents of the specified file starting at the specified offset.
-	 * The length of the returned array is specified in the Config file (DATASIZE)
+	 * Get contents of the specified file starting at the specified offset. The
+	 * length of the returned array is specified in the Config file (DATASIZE)
 	 * except for the last part of the file which is as short as it needs to be.
 	 * 
-	 * @param fileName name of the file you want to get content from.
-	 * @param offset starting point for reading contents of the file
+	 * @param fileName
+	 *            name of the file you want to get content from.
+	 * @param offset
+	 *            starting point for reading contents of the file
 	 * @return
 	 */
 	public static byte[] getFileContents(String fileName, int offset) {
@@ -38,49 +42,74 @@ public class Utils {
 		RandomAccessFile file = null;
 		try {
 			file = new RandomAccessFile(fileToTransmit, "r");
-			
+
 			long datalen = Math.min((long) Config.DATASIZE, file.length() - offset);
-			byte[] buf = new byte[(int)datalen];
-			
+			byte[] buf = new byte[(int) datalen];
+
 			file.seek(offset);
 			file.read(buf);
-			
+
 			file.close();
 			return buf;
-			
+
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		
+
 		return null;
 	}
-	
+
 	public static byte[] getNextContents(RandomAccessFile file) throws IOException {
 		long datalen = Math.min((long) Config.DATASIZE, file.length() - file.getFilePointer());
-		byte[] buf = new byte[(int)datalen];
-		
+		byte[] buf = new byte[(int) datalen];
+
 		file.read(buf);
-//		file.seek(file.getFilePointer() + Config.DATASIZE);
+		// file.seek(file.getFilePointer() + Config.DATASIZE);
 		return buf;
 	}
+
+	public static byte[] getFileContents(Scanner sc) {
+		byte[] data = new byte[Config.DATASIZE];
+		for (int i = 0; i<Config.DATASIZE; i++) {
+			if (sc.hasNextByte()) {
+				data[i] = sc.nextByte();
+			} else {
+				break;
+			}
+		}
+		return data;
+	}
 	
+
+	public static byte[] getFileContents(String fileName) {
+		File fileToTransmit = new File(String.format(fileName));
+		try (FileInputStream fileStream = new FileInputStream(fileToTransmit)) {
+			byte[] fileContents = new byte[(int) fileToTransmit.length()];
+			fileStream.read(fileContents);
+			return fileContents;
+		} catch (Exception e) {
+			System.err.println(e.getMessage());
+			System.err.println(e.getStackTrace());
+			return null;
+		}
+	}
+
 	/**
-	 * Adds data to the end of the specified file stream. 
-	 * @param fileStream to add data to
-	 * @param data to add
+	 * Adds data to the end of the specified file stream.
+	 * 
+	 * @param fileStream
+	 *            to add data to
+	 * @param data
+	 *            to add
 	 */
 	public static void setFileContents(FileOutputStream fileStream, byte[] data) {
 		try {
-			for (byte fileContent : data) {
-				fileStream.write(fileContent);
-			}
+			fileStream.write(data);
 		} catch (Exception e) {
 			System.err.println(e.getMessage());
 			System.err.println(e.getStackTrace());
 		}
 	}
-	
-	
 
 	/**
 	 * Gets the size of the specified file.
@@ -89,7 +118,7 @@ public class Utils {
 	public static int getFileSize(String fileName) {
 		return (int) new File(String.format(fileName)).length();
 	}
-	
+
 	public static int incrementNumberModuloK(int number) {
 		return (number + 1) % Config.K;
 	}
@@ -111,8 +140,6 @@ public class Utils {
 
 		return first;
 	}
-	
-	
 
 	/**
 	 * Helper class for setting timeouts. Supplied for convenience.

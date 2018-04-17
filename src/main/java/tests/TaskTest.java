@@ -4,7 +4,7 @@ import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 
-
+import java.io.File;
 import java.util.Arrays;
 
 import general.Config;
@@ -16,8 +16,10 @@ public class TaskTest {
 
 	@Before
 	public void setUp() throws Exception {
-		storeTask = new Task(Task.Type.STORE_ON_CLIENT, "testoutputfile1.png", null, null, 0, 248);
-		sendTask = new Task(Task.Type.SEND_FROM_CLIENT, "file1.png", null, null, 0, 248);
+		File file1 = new File("testoutputfile1.png");
+		File file2 = new File("downloads/file1.png");
+		storeTask = new Task(Task.Type.STORE_ON_CLIENT, file1, null, null, 0, 248);
+		sendTask = new Task(Task.Type.SEND_FROM_CLIENT, file2, null, null, 0, 248);
 		sendTask.acked(2);
 		sendTask.acked(3);
 		sendTask.acked(4);
@@ -111,7 +113,8 @@ public class TaskTest {
 	
 	@Test
 	public void testFinished() {
-		Task task = new Task(Task.Type.STORE_ON_CLIENT, "testoutputfile2.png", null, null, 0, 248);
+		File file = new File("testoutputfile2.png");
+		Task task = new Task(Task.Type.STORE_ON_CLIENT, file, null, null, 0, 248);
 		byte[] data = new byte[200];
 		byte[] data2 = new byte[48];
 		Arrays.fill(data, (byte)5);

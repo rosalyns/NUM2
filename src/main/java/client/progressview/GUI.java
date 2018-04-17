@@ -36,7 +36,9 @@ public class GUI extends JFrame implements View {
 
 	@Override
 	public void updateProgress(int percentage) {
+		if (pbar != null) {
 		pbar.setValue(percentage);
+		}
 	}
 	
 	
