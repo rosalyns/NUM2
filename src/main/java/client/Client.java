@@ -12,7 +12,6 @@ import java.util.Queue;
 
 import client.progressview.GUI;
 import client.view.FTPGUI;
-import client.view.FTPTUI;
 import client.view.FTPView;
 
 import java.util.Arrays;

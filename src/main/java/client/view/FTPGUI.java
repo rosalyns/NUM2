@@ -21,7 +21,6 @@ public class FTPGUI extends JFrame implements FTPView, ActionListener {
 	private static final long serialVersionUID = -7376568300974120629L;
 	private Client client;
 	
-	
 	private JButton uploadBut;
 	private JButton downloadBut;
 	private JComboBox<String> filebox;

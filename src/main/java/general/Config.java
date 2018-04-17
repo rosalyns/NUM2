@@ -5,7 +5,7 @@ public class Config {
 	private Config() {}
 	
 	//debug
-	public static final boolean systemOuts = true;
+	public static final boolean systemOuts = false;
 	
 	//parameters
 	public static final int FTP_HEADERSIZE = 12; // number of header bytes in each packet

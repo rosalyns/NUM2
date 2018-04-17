@@ -1,5 +1,6 @@
 package general;
 
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -118,7 +119,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		System.out.println("Finished sending task!!!!!");//boolean finished
+		System.out.println("Finished uploading " + this.getName() + ".");//boolean finished
 	}
 	
 	public void setId(int id) {
@@ -198,9 +199,9 @@ public class Task extends Thread implements ITimeoutEventHandler {
 			Utils.setFileContents(this.downloadedFileStream, storedPackets[nextExpectedPacket()]);
 			
 			if (this.transferFile.length() == this.totalFileSize) {	// means COMPLETE
-				System.out.println("Finished file..");
+				System.out.println("Finished downloading " + this.getName() + ".");
 				this.endTimeSeconds = System.currentTimeMillis() / 1000;
-				System.out.println("Download took " + this.getTransmissionTimeSeconds() + " seconds");
+				System.out.println("Download took " + this.getTransmissionTimeSeconds() + " seconds.");
 
 				try {
 					this.downloadedFileStream.close();
