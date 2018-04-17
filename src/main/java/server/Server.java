@@ -15,8 +15,8 @@ public class Server {
 
 	// --------------- MAIN METHOD ---------------- //
 	private static int serverPort = 8002;
-//	private static String path = "home/pi/files/";
-	private static String path = "/home/pi/files/"; // PIpath
+	private static String path = "home/pi/files/";
+//	private static String path = "/home/pi/files/"; // PIpath
 
 	public static void main(String[] args) {
 		try {
@@ -57,7 +57,6 @@ public class Server {
 		while (keepAlive) {
 			DatagramPacket p = getEmptyPacket();
 			try {
-//				System.out.println("[Server] Waiting for packets...");
 				sock.receive(p);
 				
 				handlePacket(p);
@@ -97,10 +96,10 @@ public class Server {
 		checksumPkt[2] = 0x00;
 		checksumPkt[3] = 0x00;
 		if (!Header.checksumCorrect(checksumPkt, checksum)) {
-//			System.out.println("checksum not correct");
+			if (Config.systemOuts) System.out.println("checksum not correct");
 			return;
 		} else {
-//			System.out.println("checksum correct");
+			if (Config.systemOuts) System.out.println("checksum correct");
 		}
 		
 		//only REQ_UP has extra header that contains the size of the file the client wants to upload
@@ -123,7 +122,8 @@ public class Server {
 		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN) {
 			int fileSize = Utils.getFileSize(path + new String(data));
-			Task t = new Task(Task.Type.SEND_FROM_SERVER, path + new String(data), sock, packet.getAddress(), packet.getPort(), fileSize);
+			File file = new File(path + new String(data));
+			Task t = new Task(Task.Type.SEND_FROM_SERVER, file, sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;
@@ -135,17 +135,17 @@ public class Server {
 			this.sendPacket(pktWithChecksum, packet.getAddress(), packet.getPort());
 			
 			t.start();
-			System.out.println("REQ_DOWN");
 			
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP) {
 			
 			int fileSize = Header.fourBytes2int(pkt[Config.FTP_HEADERSIZE], pkt[Config.FTP_HEADERSIZE+1], pkt[Config.FTP_HEADERSIZE+2], pkt[Config.FTP_HEADERSIZE+3]);
-			System.out.println("File has size " + fileSize + " bytes!");
+			if (Config.systemOuts) System.out.println("File has size " + fileSize + " bytes!");
 			//TODO check if enough space
 			//TODO don't overwrite other files, check if name already exists
 			
 			String fileName = new String(data);
-			Task t = new Task(Task.Type.STORE_ON_SERVER, path+fileName, sock, packet.getAddress(), packet.getPort(), fileSize);
+			File file = new File(path + String.format(fileName));
+			Task t = new Task(Task.Type.STORE_ON_SERVER, file, sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;

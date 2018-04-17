@@ -1,5 +1,6 @@
 package client;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -24,6 +25,7 @@ public class Client implements ITimeoutEventHandler {
 	public static void main(String[] args) {
         try {
 			Client client = new Client(serverPort);
+			client.run();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -33,7 +35,7 @@ public class Client implements ITimeoutEventHandler {
 	private InetAddress serverIp;
 	private int port;
 	private DatagramSocket sock;
-	private TUI tui;
+	private View view;
 	private Map<Integer, Task> tasks;
 	private Queue<Task> requestedUps;
 	private Queue<Task> requestedDowns;
@@ -50,11 +52,14 @@ public class Client implements ITimeoutEventHandler {
 		this.requestedDowns = new LinkedList<>();
 		this.sock = new DatagramSocket(52123);
 		this.sock.setBroadcast(true);
-		this.tui = new TUI(this, System.in);
-		Thread tuiThread = new Thread(tui);
-		tuiThread.start();
+		this.view = new TUI(this);
+	}
+	
+	public void run() {
 		Utils.Timeout.Start();
 		discover();
+		Thread viewThread = new Thread(view);
+		viewThread.start();
 		receive();
 	}
 	
@@ -140,7 +145,6 @@ public class Client implements ITimeoutEventHandler {
 		while (keepAlive) {
 			DatagramPacket p = getEmptyPacket();
 			try {
-//				System.out.println("[Client] Waiting for packets...");
 				sock.receive(p);
 				handlePacket(p);
 				Thread.sleep(100);
@@ -168,10 +172,10 @@ public class Client implements ITimeoutEventHandler {
 		checksumPkt[2] = 0x00;
 		checksumPkt[3] = 0x00;   
 		if (!Header.checksumCorrect(checksumPkt, checksum)) {
-			System.out.println("checksum not correct");
+			if (Config.systemOuts) System.out.println("checksum not correct");
 //			return;
 		} else {
-			System.out.println("checksum correct");
+			if (Config.systemOuts) System.out.println("checksum correct");
 		}
 		
 		byte[] data;
@@ -193,14 +197,13 @@ public class Client implements ITimeoutEventHandler {
 		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN && (flags & Config.ACK) == Config.ACK) {
 			int fileSize = Header.fourBytes2int(pkt[Config.FTP_HEADERSIZE],pkt[Config.FTP_HEADERSIZE + 1],pkt[Config.FTP_HEADERSIZE+2],pkt[Config.FTP_HEADERSIZE+3]);
-			System.out.println("filesize is " + fileSize);
+			if (Config.systemOuts) System.out.println("filesize is " + fileSize);
 			if (!requestedDowns.isEmpty()) {
 				Task t = requestedDowns.poll();
 				t.setFileSize(fileSize);
 				t.setId(taskId);
 				tasks.put(t.getTaskId(), t);
 			}
-			System.out.println("REQ_DOWN + ACK");
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP && (flags & Config.ACK) == Config.ACK) {
 			if (!requestedUps.isEmpty()) {
 				Task t = requestedUps.poll();
@@ -223,7 +226,7 @@ public class Client implements ITimeoutEventHandler {
 			System.out.println("Packet has STATS flag set"); 
 		} else if ((flags & Config.LIST) == Config.LIST && (flags & Config.ACK) == Config.ACK) {
 			String files = new String(data);
-			tui.showFilesOnServer(files.split(" "));
+			view.showFilesOnServer(files.split(" "));
 		}
 	}
 	
@@ -252,26 +255,26 @@ public class Client implements ITimeoutEventHandler {
 		System.out.println("asking for progress..");
 	}
 	
-	public void uploadFile(String fileName) {
-		int fileSize = Utils.getFileSize("downloads/" + fileName);
+	public void uploadFile(File file) {
+		int fileSize = Utils.getFileSize(file.getPath());
 		
 		byte[] header = Header.ftp(0, RANDOM_SEQ, 0,Config.REQ_UP, 0xffffffff);
 		byte[] sizeHeader = Header.fileSize(fileSize);
-		byte[] pkt = Utils.mergeArrays(header, sizeHeader, fileName.getBytes());
+		byte[] pkt = Utils.mergeArrays(header, sizeHeader, file.getName().getBytes());
 		byte[] pktWithChecksum = Header.addChecksum(pkt, Header.crc16(pkt));
-		System.out.println("Sending packet with seq_no " + RANDOM_SEQ + " and fileSize " + fileSize);
+		if (Config.systemOuts) System.out.println("Sending packet with seq_no " + RANDOM_SEQ + " and fileSize " + fileSize);
 		
-		Task t = new Task(Task.Type.SEND_FROM_CLIENT, "downloads/"+fileName, sock, serverIp, port, fileSize);
+		Task t = new Task(Task.Type.SEND_FROM_CLIENT, file, sock, serverIp, port, fileSize);
 		requestedUps.add(t);
 		
 		sendPacket(pktWithChecksum);
 	}
 	
-	public void downloadFile(String fileName) {
+	public void downloadFile(File file) {
 		byte[] header = Header.ftp(0, RANDOM_SEQ, 0, Config.REQ_DOWN,	0xffffffff);
-		byte[] pkt = Utils.mergeArrays(header, fileName.getBytes());
+		byte[] pkt = Utils.mergeArrays(header, file.getName().getBytes());
 		byte[] pktWithChecksum = Header.addChecksum(pkt, Header.crc16(pkt));
-		Task t = new Task(Task.Type.STORE_ON_CLIENT, "downloads/"+fileName, sock, serverIp, port, 200000000); //TODO think about fileSize (last param)
+		Task t = new Task(Task.Type.STORE_ON_CLIENT, file, sock, serverIp, port, 0);
 		requestedDowns.add(t);
 		
 		sendPacket(pktWithChecksum);

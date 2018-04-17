@@ -1,10 +1,9 @@
 package client;
 
-import java.io.InputStream;
-import java.util.List;
+import java.io.File;
 import java.util.Scanner;
 
-public class TUI implements Runnable {
+public class TUI implements View {
 
 	/**
 	 * State is used to decide what user input is allowed in what state of the menu.
@@ -28,10 +27,10 @@ public class TUI implements Runnable {
 			+ "5: Quit";
 	
 			
-	public TUI(Client client, InputStream systemIn) {
+	public TUI(Client client) {
 		this.client = client;
 		this.state = State.INMENU;
-		this.in = new Scanner(systemIn);
+		this.in = new Scanner(System.in);
 	}
 
 	@Override
@@ -46,6 +45,7 @@ public class TUI implements Runnable {
 				if (words.length == 1 && words[0].equalsIgnoreCase("1")) {
 					state = State.WANT_TO_UPLOAD;
 					print("Put the file you want to upload in the current folder and type the name of the file:");
+					// TODO: show list of available files for upload just like download.
 				} else if (words.length == 1 && words[0].equalsIgnoreCase("2")) {
 					state = State.WANT_TO_DOWNLOAD;
 					client.askForFiles();
@@ -60,10 +60,13 @@ public class TUI implements Runnable {
 				}
 				break;
 			case WANT_TO_UPLOAD:
-				client.uploadFile(words[0]);
+				File file = new File("downloads/" + words[0]);
+				client.uploadFile(file);
+//				print("Uploading " + words[0]);
 				break;
 			case WANT_TO_DOWNLOAD:
-				client.downloadFile(words[0]);
+				file = new File("downloads/" + words[0]);
+				client.downloadFile(file);
 				break;
 			case CHOOSE_DOWNLOAD:
 				

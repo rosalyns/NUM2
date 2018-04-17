@@ -1,7 +1,6 @@
 package general;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -49,14 +48,22 @@ public class Utils {
 			file.close();
 			return buf;
 			
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		
 		return null;
 	}
+	
+	public static byte[] getNextContents(RandomAccessFile file) throws IOException {
+		long datalen = Math.min((long) Config.DATASIZE, file.length() - file.getFilePointer());
+		byte[] buf = new byte[(int)datalen];
+		
+		file.read(buf);
+//		file.seek(file.getFilePointer() + Config.DATASIZE);
+		return buf;
+	}
+	
 	/**
 	 * Adds data to the end of the specified file stream. 
 	 * @param fileStream to add data to

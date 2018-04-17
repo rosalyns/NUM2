@@ -4,6 +4,9 @@ public class Config {
 
 	private Config() {}
 	
+	//debug
+	public static final boolean systemOuts = true;
+	
 	//parameters
 	public static final int FTP_HEADERSIZE = 12; // number of header bytes in each packet
 	public static final int FILESIZE_HEADERSIZE = 4; // filesize header is used for requesting upload or downloads
