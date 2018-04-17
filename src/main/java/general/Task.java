@@ -10,6 +10,8 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
 
+import client.progressview.GUI;
+
 public class Task extends Thread implements ITimeoutEventHandler {
 
 	public enum Type {
@@ -22,10 +24,12 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	private File transferFile;
 	private RandomAccessFile fileToUpload;
 	private FileOutputStream downloadedFileStream;
+	private GUI progressBar;
 	private int id;
 	private int port;
 	private int totalFileSize;
 	private int retransmissions;
+	private int acksReceived = 0;
 	private int LAR = Config.FIRST_PACKET - 1;
 	private int LFR = -1;
 	private int sequenceNumber = Config.FIRST_PACKET;
@@ -71,17 +75,12 @@ public class Task extends Thread implements ITimeoutEventHandler {
 			e.printStackTrace();
 		}
 		
-//		int offset = 0;
-//		int datalen = -1;
 		boolean lastPacket = false;
 		
 		while (!lastPacket) {
 			while (!lastPacket && inSendingWindow(sequenceNumber)) {
-//				datalen = Math.min(Config.DATASIZE, this.totalFileSize - offset);
-//				lastPacket = offset + datalen >= totalFileSize;
 				
 				byte[] header = Header.ftp(this.id, sequenceNumber, 0, Config.TRANSFER, 0xffffffff);
-//				byte[] data = Utils.getFileContents(this.getName(), offset);
 				byte[] data = null;
 				try {
 					data = Utils.getNextContents(fileToUpload);
@@ -97,7 +96,6 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				
 				if (Config.systemOuts) System.out.println("Sending packet with seq_no " + sequenceNumber);
 				sequenceNumber = Utils.incrementNumberModuloK(sequenceNumber);
-//				offset += datalen;
 
 //				try {
 //					Thread.sleep(10);
@@ -130,6 +128,18 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	public void setFileSize(int size) {
 		if (this.type == Task.Type.STORE_ON_CLIENT) {
 			this.totalFileSize = size;
+		}
+	}
+	
+	public void setGUI(GUI progressGUI) {
+		this.progressBar = progressGUI;
+	}
+	
+	public void updateProgressGUI() {
+		if (this.type == Task.Type.SEND_FROM_CLIENT) {
+			progressBar.updateProgress((int) ((acksReceived / (Math.ceil(this.totalFileSize / (double)Config.DATASIZE))) * 100));
+		} else if (this.type == Task.Type.STORE_ON_CLIENT) {
+			progressBar.updateProgress((int) ((this.getCurrentFileSize() / (double)this.totalFileSize) * 100));
 		}
 	}
 
@@ -167,6 +177,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 
 		while (ackedPackets[nextExpectedAck()]) {
 			LAR = nextExpectedAck();
+			acksReceived++;
 			waitingForAcks = false;
 			if (Config.systemOuts) System.out.println("LAR is now " + LAR + ".");
 			ackedPackets[LAR] = false;

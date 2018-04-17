@@ -136,6 +136,8 @@ public class Server {
 			
 			t.start();
 			
+			//TODO start gui thread for progress.
+			
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP) {
 			
 			int fileSize = Header.fourBytes2int(pkt[Config.FTP_HEADERSIZE], pkt[Config.FTP_HEADERSIZE+1], pkt[Config.FTP_HEADERSIZE+2], pkt[Config.FTP_HEADERSIZE+3]);

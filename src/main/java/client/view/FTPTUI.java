@@ -1,9 +1,11 @@
-package client;
+package client.view;
 
 import java.io.File;
 import java.util.Scanner;
 
-public class TUI implements View {
+import client.Client;
+
+public class FTPTUI implements FTPView {
 
 	/**
 	 * State is used to decide what user input is allowed in what state of the menu.
@@ -27,7 +29,7 @@ public class TUI implements View {
 			+ "5: Quit";
 	
 			
-	public TUI(Client client) {
+	public FTPTUI(Client client) {
 		this.client = client;
 		this.state = State.INMENU;
 		this.in = new Scanner(System.in);
@@ -45,7 +47,6 @@ public class TUI implements View {
 				if (words.length == 1 && words[0].equalsIgnoreCase("1")) {
 					state = State.WANT_TO_UPLOAD;
 					print("Put the file you want to upload in the current folder and type the name of the file:");
-					// TODO: show list of available files for upload just like download.
 				} else if (words.length == 1 && words[0].equalsIgnoreCase("2")) {
 					state = State.WANT_TO_DOWNLOAD;
 					client.askForFiles();

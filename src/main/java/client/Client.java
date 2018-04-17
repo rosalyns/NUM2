@@ -9,6 +9,12 @@ import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.util.Map;
 import java.util.Queue;
+
+import client.progressview.GUI;
+import client.view.FTPGUI;
+import client.view.FTPTUI;
+import client.view.FTPView;
+
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -35,7 +41,7 @@ public class Client implements ITimeoutEventHandler {
 	private InetAddress serverIp;
 	private int port;
 	private DatagramSocket sock;
-	private View view;
+	private FTPView view;
 	private Map<Integer, Task> tasks;
 	private Queue<Task> requestedUps;
 	private Queue<Task> requestedDowns;
@@ -52,7 +58,7 @@ public class Client implements ITimeoutEventHandler {
 		this.requestedDowns = new LinkedList<>();
 		this.sock = new DatagramSocket(52123);
 		this.sock.setBroadcast(true);
-		this.view = new TUI(this);
+		this.view = new FTPGUI(this);
 	}
 	
 	public void run() {
@@ -203,20 +209,33 @@ public class Client implements ITimeoutEventHandler {
 				t.setFileSize(fileSize);
 				t.setId(taskId);
 				tasks.put(t.getTaskId(), t);
+				
+				GUI progressBar = new GUI("Downloading "+ t.getName());
+				Thread guiThread = new Thread(progressBar);
+				guiThread.start();
+				t.setGUI(progressBar);
 			}
+			
 		} else if ((flags & Config.REQ_UP) == Config.REQ_UP && (flags & Config.ACK) == Config.ACK) {
 			if (!requestedUps.isEmpty()) {
 				Task t = requestedUps.poll();
 				t.setId(taskId);
 				tasks.put(t.getTaskId(), t);
 				t.start();
+				
+				GUI progressBar = new GUI("Uploading " + t.getName());
+				Thread guiThread = new Thread(progressBar);
+				guiThread.start();
+				t.setGUI(progressBar);
 			}
 		} else if ((flags & Config.TRANSFER) == Config.TRANSFER && (flags & Config.ACK) == Config.ACK) {
-			Task task = tasks.get(taskId);
-			task.acked(ackNo);
+			Task t = tasks.get(taskId);
+			t.acked(ackNo);
+			t.updateProgressGUI();
 		} else if ((flags & Config.TRANSFER) == Config.TRANSFER) {
 			Task t = tasks.get(taskId);
 			t.addContent(seqNo, data);
+			t.updateProgressGUI();
 			
 			byte[] header = Header.ftp(taskId, 3, seqNo, Config.ACK | Config.TRANSFER, 0xffffffff);//TODO send correct ackNo (% K)
 			byte[] pktWithChecksum = Header.addChecksum(header, Header.crc16(header));

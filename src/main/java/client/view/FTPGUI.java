@@ -1,4 +1,4 @@
-package client;
+package client.view;
 
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
@@ -12,7 +12,9 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-public class GUI extends JFrame implements View, ActionListener {
+import client.Client;
+
+public class FTPGUI extends JFrame implements FTPView, ActionListener {
 	/**
 	 * 
 	 */
@@ -22,28 +24,23 @@ public class GUI extends JFrame implements View, ActionListener {
 	
 	private JButton uploadBut;
 	private JButton downloadBut;
+	private JComboBox<String> filebox;
 	
-	public GUI(Client client) {
+	public FTPGUI(Client client) {
 		this.client = client;
 	}
 	
 	@Override
 	public void run() {
-		
-		//The JFrame uses the BorderLayout layout manager.
-		//Put the two JPanels and JButton in different areas.
-		
-		
-		
 		this.client.askForFiles();
-		
 	}
 	
 	@Override
 	public void actionPerformed(ActionEvent event)
 	{
 		if (event.getSource() == downloadBut) {
-			
+			File file = new File((String)filebox.getSelectedItem());
+			client.downloadFile(file);
 		} else if (event.getSource() == uploadBut) {
 			JFileChooser fileChooser = new JFileChooser();
 			fileChooser.setCurrentDirectory(new File(System.getProperty("user.home")));
@@ -57,17 +54,16 @@ public class GUI extends JFrame implements View, ActionListener {
 	
 	@Override
 	public void showFilesOnServer(String[] files) {
-		JFrame guiFrame = new JFrame();
+		JFrame guiFrame = new JFrame("FTP");
 		//make sure the program exits when the frame closes
 		guiFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		guiFrame.setTitle("FTP");
 		guiFrame.setSize(300,150);
 		//This will center the JFrame in the middle of the screen
 		guiFrame.setLocationRelativeTo(null);
 		
 		final JPanel comboPanel = new JPanel();
 		JLabel comboLbl = new JLabel("Files to download:");
-		JComboBox<String> filebox = new JComboBox<String>(files);
+		filebox = new JComboBox<String>(files);
 		comboPanel.add(comboLbl);
 		comboPanel.add(filebox);
 		

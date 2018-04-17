@@ -1,6 +1,6 @@
-package client;
+package client.view;
 
-public interface View extends Runnable {
+public interface FTPView extends Runnable {
 	
 	public void run();
 	public void showFilesOnServer(String[] words);
