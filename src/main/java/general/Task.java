@@ -70,11 +70,11 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		try {
 			fileToUpload = new RandomAccessFile(this.transferFile, "r");
 			fileToUpload.seek(0);
-		} catch (FileNotFoundException e1) {
+		} catch (IOException e1) {
 			e1.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+			System.out.println("Stopping the upload.");
+			return;
+		} 
 		
 		boolean lastPacket = false;
 		
@@ -259,7 +259,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	}
 	
 	public long getTransmissionTimeSeconds() {
-		if (this.type == Task.Type.STORE_ON_CLIENT && this.beginTimeSeconds != -1 && this.endTimeSeconds != -1) {
+		if ((this.type == Task.Type.STORE_ON_CLIENT || this.type == Task.Type.STORE_ON_SERVER) && this.beginTimeSeconds != -1 && this.endTimeSeconds != -1) {
 			return this.endTimeSeconds - this.beginTimeSeconds;
 		}
 		return -1;
