@@ -1,0 +1,34 @@
+
+
+
+class StartCommand extends Command {
+	commandStr = "START"
+	accepts(command) {
+		return command == commandStr;
+	}
+
+	execute(command) {
+		...
+	}
+}
+
+
+
+
+List<Command> lijst
+
+
+foreach(item in lijst) {
+	if item.accepts(command) {
+		item.execute(command)
+	}
+}
+
+
+
+Map<String, ((String) -> void)> map
+
+map.put("START", addToNogWat);
+
+
+map.get("START")(command)

@@ -2,12 +2,12 @@ package server;
 
 import general.Task;
 
-public class DataTuple {
+public class DataFragment {
 	private Task task;
 	private int seqNo;
 	private byte[] data;
 	
-	public DataTuple(Task task, int seqNo, byte[] data) {
+	public DataFragment(Task task, int seqNo, byte[] data) {
 		this.task = task;
 		this.seqNo = seqNo;
 		this.data = data;

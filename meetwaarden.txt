@@ -9,3 +9,12 @@ windows 200, K 500
 10,4 MB (pic10.jpg)
 14:14 begin
 oneindig
+
+-- VERSIE 2 --
+
+download:
+
+MET systemOUTS
+windows 200, K 0xffff
+49,8 MB (pic50.jpg)
+

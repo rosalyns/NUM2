@@ -10,9 +10,9 @@ import java.net.NetworkInterface;
 import java.util.Map;
 import java.util.Queue;
 
-import client.progressview.GUI;
-import client.view.FTPGUI;
-import client.view.FTPView;
+import client.FTPview.FTPGUI;
+import client.FTPview.FTPView;
+import client.progressview.ProgressGUI;
 
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -20,8 +20,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 
 import general.*;
-import server.DataTuple;
-import server.WritingThread;
+import server.DataFragment;
 
 public class Client implements ITimeoutEventHandler {
 
@@ -159,7 +158,6 @@ public class Client implements ITimeoutEventHandler {
 				handlePacket(p);
 
 			} catch (IOException e) {
-				// Thread.currentThread().interrupt();
 				keepAlive = false;
 			}
 		}
@@ -175,14 +173,14 @@ public class Client implements ITimeoutEventHandler {
 		int seqNo = Header.twoBytes2int(pkt[4],pkt[5]);
 		int ackNo = Header.twoBytes2int(pkt[6],pkt[7]);
 		byte flags = pkt[8];
-		int windowSize = Header.twoBytes2int(pkt[10],pkt[11]);
+//		int windowSize = Header.twoBytes2int(pkt[10],pkt[11]);
 		
 		byte[] checksumPkt = Arrays.copyOf(pkt, pkt.length);
 		checksumPkt[2] = 0x00;
 		checksumPkt[3] = 0x00;   
 		if (!Header.checksumCorrect(checksumPkt, checksum)) {
 			if (Config.systemOuts) System.out.println("checksum not correct");
-//			return;
+			return;
 		} else {
 			if (Config.systemOuts) System.out.println("checksum correct");
 		}
@@ -196,14 +194,6 @@ public class Client implements ITimeoutEventHandler {
 			System.arraycopy(pkt, Config.FTP_HEADERSIZE, data, 0, pkt.length - Config.FTP_HEADERSIZE);
 		}
 		
-//		System.out.println("[Client] Packet received from " + packet.getSocketAddress() 
-//		+ " :\ntaskID: "  + taskId 
-//		+ "\nchecksum: " + checksum 
-//		+ "\nseqNo: " + seqNo 
-//		+ "\nackNo: " + ackNo 
-//		+ "\nflags: " + Integer.toBinaryString(flags) 
-//		+ "\nwindowSize: " + windowSize);
-		
 		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN && (flags & Config.ACK) == Config.ACK) {
 			int fileSize = Header.fourBytes2int(pkt[Config.FTP_HEADERSIZE],pkt[Config.FTP_HEADERSIZE + 1],pkt[Config.FTP_HEADERSIZE+2],pkt[Config.FTP_HEADERSIZE+3]);
 			if (Config.systemOuts) System.out.println("filesize is " + fileSize);
@@ -213,7 +203,7 @@ public class Client implements ITimeoutEventHandler {
 				t.setId(taskId);
 				tasks.put(t.getTaskId(), t);
 				
-				GUI progressBar = new GUI("Downloading "+ t.getName());
+				ProgressGUI progressBar = new ProgressGUI("Downloading "+ t.getName());
 				Thread guiThread = new Thread(progressBar);
 				guiThread.start();
 				t.setGUI(progressBar);
@@ -226,7 +216,7 @@ public class Client implements ITimeoutEventHandler {
 				tasks.put(t.getTaskId(), t);
 				t.start();
 				
-				GUI progressBar = new GUI("Uploading " + t.getName());
+				ProgressGUI progressBar = new ProgressGUI("Uploading " + t.getName());
 				Thread guiThread = new Thread(progressBar);
 				guiThread.start();
 				t.setGUI(progressBar);
@@ -234,15 +224,19 @@ public class Client implements ITimeoutEventHandler {
 		} else if ((flags & Config.TRANSFER) == Config.TRANSFER && (flags & Config.ACK) == Config.ACK) {
 			Task t = tasks.get(taskId);
 			t.acked(ackNo);
-			t.updateProgressGUI();
+			t.updateProgressBar();
 		} else if ((flags & Config.TRANSFER) == Config.TRANSFER) {
 			Task t = tasks.get(taskId);
-//			t.addContent(seqNo, data);
-			t.updateProgressGUI();
-			WritingThread.getInstance().addToQueue(new DataTuple(t, seqNo, data));
-			byte[] header = Header.ftp(taskId, 3, seqNo, Config.ACK | Config.TRANSFER, 0xffffffff);//TODO send correct ackNo (% K)
+			if (t == null) {
+				System.out.println("Cannot find task #" + taskId);
+				tasks.keySet().forEach((key) -> System.out.println(key));
+			} else {
+			t.updateProgressBar();
+			WritingThread.getInstance().addToQueue(new DataFragment(t, seqNo, data));
+			byte[] header = Header.ftp(taskId, 3, seqNo, Config.ACK | Config.TRANSFER, 0xffffffff);
 			byte[] pktWithChecksum = Header.addChecksum(header, Header.crc16(header));
 			this.sendPacket(pktWithChecksum);
+			}
 			
 		} else if ((flags & Config.STATS) == Config.STATS) {
 			System.out.println("Packet has STATS flag set"); 
@@ -313,7 +307,7 @@ public class Client implements ITimeoutEventHandler {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		Utils.Timeout.SetTimeout(1000, this, packet);
+		Utils.Timeout.SetTimeout(Config.TIMEOUT_REQUEST, this, packet);
 	}
 
 	@Override

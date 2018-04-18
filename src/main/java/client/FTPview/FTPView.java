@@ -1,4 +1,4 @@
-package client.view;
+package client.FTPview;
 
 public interface FTPView extends Runnable {
 	

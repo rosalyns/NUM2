@@ -3,7 +3,7 @@ package client.progressview;
 import javax.swing.JFrame;
 import javax.swing.JProgressBar;
 
-public class GUI extends JFrame implements View {
+public class ProgressGUI extends JFrame implements ProgressView {
 	/**
 	 * 
 	 */
@@ -15,7 +15,7 @@ public class GUI extends JFrame implements View {
 	static final int MY_MINIMUM = 0;
 	static final int MY_MAXIMUM = 100;
 
-	public GUI(String title) {
+	public ProgressGUI(String title) {
 		this.title = title;
 	}
 
@@ -25,13 +25,12 @@ public class GUI extends JFrame implements View {
 	    pbar.setMinimum(MY_MINIMUM);
 	    pbar.setMaximum(MY_MAXIMUM);
 	    // add to JPanel
-	    add(pbar);
+	    this.add(pbar);
 		
-		JFrame frame = new JFrame(title);
-	    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-	    frame.setSize(300,50);
-	    frame.add(pbar);
-	    frame.setVisible(true);
+	    this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+	    this.setSize(300,50);
+	    this.setVisible(true);
+	    this.setTitle(this.title);
 	}
 
 	@Override

@@ -1,4 +1,4 @@
-package client.view;
+package client.FTPview;
 
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;

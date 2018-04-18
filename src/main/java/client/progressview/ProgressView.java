@@ -1,6 +1,6 @@
 package client.progressview;
 
-public interface View extends Runnable {
+public interface ProgressView extends Runnable {
 	
 	public void run();
 	public void updateProgress(int percentage);

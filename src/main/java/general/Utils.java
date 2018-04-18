@@ -11,7 +11,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.concurrent.locks.ReentrantLock;
 
 import general.Config;
@@ -67,19 +66,6 @@ public class Utils {
 		// file.seek(file.getFilePointer() + Config.DATASIZE);
 		return buf;
 	}
-
-	public static byte[] getFileContents(Scanner sc) {
-		byte[] data = new byte[Config.DATASIZE];
-		for (int i = 0; i<Config.DATASIZE; i++) {
-			if (sc.hasNextByte()) {
-				data[i] = sc.nextByte();
-			} else {
-				break;
-			}
-		}
-		return data;
-	}
-	
 
 	public static byte[] getFileContents(String fileName) {
 		File fileToTransmit = new File(String.format(fileName));
@@ -246,7 +232,7 @@ public class Utils {
 					}
 					handlersToInvoke.clear();
 
-					Thread.sleep(1);
+					Thread.sleep(50);
 				} catch (InterruptedException e) {
 					runThread = false;
 				}

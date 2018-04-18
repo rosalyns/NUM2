@@ -1,11 +1,12 @@
-package server;
+package general;
 
-import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import server.DataFragment;
+
 public class WritingThread implements Runnable {
-	private Queue<DataTuple> queue;
+	private Queue<DataFragment> queue;
 	
 	private WritingThread() {
 		this.queue = new ConcurrentLinkedQueue<>();
@@ -15,12 +16,12 @@ public class WritingThread implements Runnable {
 	public void run() {
 		
 		while(true) {
-			DataTuple tuple = queue.poll();
+			DataFragment tuple = queue.poll();
 			if (tuple != null) {
 				tuple.getTask().addContent(tuple.getSeqNo(), tuple.getData());
 			} else {
 				try {
-					Thread.sleep(10);
+					Thread.sleep(100);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
@@ -29,7 +30,7 @@ public class WritingThread implements Runnable {
 		
 	}
 	
-	public void addToQueue(DataTuple data) {
+	public void addToQueue(DataFragment data) {
 		queue.add(data);
 	}
 	

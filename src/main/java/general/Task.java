@@ -1,7 +1,7 @@
 package general;
 
+import java.awt.event.WindowEvent;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -10,9 +10,8 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
-import java.util.Scanner;
 
-import client.progressview.GUI;
+import client.progressview.ProgressGUI;
 
 public class Task extends Thread implements ITimeoutEventHandler {
 
@@ -26,7 +25,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	private File transferFile;
 	private RandomAccessFile fileToUpload;
 	private FileOutputStream downloadedFileStream;
-	private GUI progressBar;
+	private ProgressGUI progressBar;
 	private int id;
 	private int port;
 	private int totalFileSize;
@@ -35,9 +34,8 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	private int LAR = Config.FIRST_PACKET - 1;
 	private int LFR = -1;
 	private int sequenceNumber = Config.FIRST_PACKET;
-
-	private long beginTimeSeconds = -1;
-	private long endTimeSeconds = -1;
+	private int beginTimeSeconds = -1;
+	private int endTimeSeconds = -1;
 
 	private byte[][] storedPackets;
 	private boolean[] ackedPackets = new boolean[Config.K];
@@ -68,23 +66,14 @@ public class Task extends Thread implements ITimeoutEventHandler {
 
 	@Override
 	public void run() {
-		 try {
-		 fileToUpload = new RandomAccessFile(this.transferFile, "r");
-		 fileToUpload.seek(0);
-		 } catch (IOException e1) {
-		 e1.printStackTrace();
-		 System.out.println("Stopping the upload.");
-		 return;
-		 }
-
-//		FileInputStream inputStream = null;
-//		Scanner sc = null;
-//		try {
-//			inputStream = new FileInputStream(this.transferFile.getPath());
-//		} catch (FileNotFoundException e1) {
-//			e1.printStackTrace();
-//		}
-//		sc = new Scanner(inputStream, "UTF-8");
+		try {
+			fileToUpload = new RandomAccessFile(this.transferFile, "r");
+			fileToUpload.seek(0);
+		} catch (IOException e1) {
+			e1.printStackTrace();
+			System.out.println("Stopping the upload.");
+			return;
+		}
 
 		boolean lastPacket = false;
 
@@ -111,10 +100,6 @@ public class Task extends Thread implements ITimeoutEventHandler {
 					System.out.println("Sending packet with seq_no " + sequenceNumber);
 				sequenceNumber = Utils.incrementNumberModuloK(sequenceNumber);
 
-				// try {
-				// Thread.sleep(10);
-				// } catch (InterruptedException e) {
-				// }
 			}
 
 			while (waitingForAcks) {
@@ -133,6 +118,9 @@ public class Task extends Thread implements ITimeoutEventHandler {
 			e.printStackTrace();
 		}
 		System.out.println("Finished uploading " + this.getName() + ".");// boolean finished
+		if (this.progressBar != null) {
+			this.progressBar.dispatchEvent(new WindowEvent(this.progressBar, WindowEvent.WINDOW_CLOSING));
+		}
 	}
 
 	public void setId(int id) {
@@ -145,11 +133,11 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		}
 	}
 
-	public void setGUI(GUI progressGUI) {
+	public void setGUI(ProgressGUI progressGUI) {
 		this.progressBar = progressGUI;
 	}
 
-	public void updateProgressGUI() {
+	public void updateProgressBar() {
 		if (this.type == Task.Type.SEND_FROM_CLIENT) {
 			progressBar.updateProgress(
 					(int) ((acksReceived / (Math.ceil(this.totalFileSize / (double) Config.DATASIZE))) * 100));
@@ -163,16 +151,16 @@ public class Task extends Thread implements ITimeoutEventHandler {
 				|| (LAR + Config.SWS >= Config.K && packetNumber <= (LAR + Config.SWS) % Config.K);
 	}
 
-	public boolean inReceivingWindow(int packetNumber) {
+	private boolean inReceivingWindow(int packetNumber) {
 		return (LFR < packetNumber && packetNumber <= (LFR + Config.RWS))
 				|| (LFR + Config.RWS >= Config.K && packetNumber <= (LFR + Config.RWS) % Config.K);
 	}
 
-	public int nextExpectedAck() {
+	private int nextExpectedAck() {
 		return Utils.incrementNumberModuloK(LAR);
 	}
 
-	public int nextExpectedPacket() {
+	private int nextExpectedPacket() {
 		if (LFR == -1) {
 			LFR = Config.FIRST_PACKET - 1;
 			return Config.FIRST_PACKET;
@@ -204,7 +192,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	public synchronized void addContent(int seqNo, byte[] data) {
 		if (firstAck) {
 			firstAck = false;
-			this.beginTimeSeconds = System.currentTimeMillis() / 1000;
+			this.beginTimeSeconds = (int) System.currentTimeMillis() / 1000;
 		}
 		if (inReceivingWindow(seqNo) && !this.finished()) {
 			storedPackets[seqNo] = data;
@@ -217,9 +205,12 @@ public class Task extends Thread implements ITimeoutEventHandler {
 
 			if (this.transferFile.length() == this.totalFileSize) { // means COMPLETE
 				System.out.println("Finished downloading " + this.getName() + ".");
-				System.out.println("Filesize = " + this.transferFile.length() + " total size: " + this.totalFileSize);
-				this.endTimeSeconds = System.currentTimeMillis() / 1000;
+				this.endTimeSeconds = (int) System.currentTimeMillis() / 1000;
 				System.out.println("Download took " + this.getTransmissionTimeSeconds() + " seconds.");
+				
+				if (this.progressBar != null) {
+					this.progressBar.dispatchEvent(new WindowEvent(this.progressBar, WindowEvent.WINDOW_CLOSING));
+				}
 
 				try {
 					this.downloadedFileStream.close();
@@ -277,7 +268,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		return -1;
 	}
 
-	public long getTransmissionTimeSeconds() {
+	public int getTransmissionTimeSeconds() {
 		if ((this.type == Task.Type.STORE_ON_CLIENT || this.type == Task.Type.STORE_ON_SERVER)
 				&& this.beginTimeSeconds != -1 && this.endTimeSeconds != -1) {
 			return this.endTimeSeconds - this.beginTimeSeconds;

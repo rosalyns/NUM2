@@ -1,4 +1,4 @@
-package client.view;
+package client.FTPview;
 
 import java.io.File;
 import java.util.Scanner;
