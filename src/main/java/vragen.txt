@@ -1,0 +1,10 @@
+- ack van hetzelfde pakketje of ack van volgende verwachte pakket
+- waarom werkt grotere DATASIZE beter? 
+
+- observable voor GUI
+- storetask + sendtask onderscheid
+- Writingthread overbodig maken
+- handlePacket methode opsplitsen in methods (bv in Header ontleden) (ook makkelijker te testen)
+- client + server superklasse maken die allebei luisteren.
+- wait notify ipv busy wait
+- tasks kunnen niet bij socket.

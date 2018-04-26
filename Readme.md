@@ -20,6 +20,7 @@ javac client/**/*.java
 voor elke map.
 
 Run daarna de Client (vanuit de src map) met het commando: 
+
 ```
 java client/Client
 ```

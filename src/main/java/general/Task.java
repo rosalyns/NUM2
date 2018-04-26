@@ -10,10 +10,11 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
+import java.util.Observable;
 
 import client.progressview.ProgressGUI;
 
-public class Task extends Thread implements ITimeoutEventHandler {
+public class Task extends Observable implements ITimeoutEventHandler, Runnable {
 
 	public enum Type {
 		STORE_ON_CLIENT, SEND_FROM_CLIENT, STORE_ON_SERVER, SEND_FROM_SERVER
@@ -26,10 +27,11 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	private RandomAccessFile fileToUpload;
 	private FileOutputStream downloadedFileStream;
 	private ProgressGUI progressBar;
+	private String name;
 	private int id;
 	private int port;
 	private int totalFileSize;
-	private int retransmissions;
+	private int retransmissions = 0;
 	private int acksReceived = 0;
 	private int LAR = Config.FIRST_PACKET - 1;
 	private int LFR = -1;
@@ -44,7 +46,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	private boolean waitingForAcks = true;
 
 	public Task(Task.Type type, File file, DatagramSocket sock, InetAddress addr, int port, int fileSize) {
-		this.setName(file.getName());
+		this.name = file.getName();
 		this.type = type;
 		this.sock = sock;
 		this.addr = addr;
@@ -80,7 +82,7 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		while (!lastPacket) {
 			while (!lastPacket && inSendingWindow(sequenceNumber)) {
 
-				byte[] header = Header.ftp(this.id, sequenceNumber, 0, Config.TRANSFER, 0xffffffff);
+				byte[] header = Header.ftp(new FTPHeader(this.id, sequenceNumber, 0, Config.TRANSFER, 0xffffffff));
 				byte[] data = null;
 				try {
 					data = Utils.getNextContents(fileToUpload);
@@ -117,7 +119,9 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		System.out.println("Finished uploading " + this.getName() + ".");// boolean finished
+		System.out.println("Finished uploading " + this.name + ".");// boolean finished
+		double percentagePacketLoss = (double) (this.retransmissions / (Math.ceil(this.totalFileSize / (double) Config.DATASIZE))) * 100;
+		System.out.println("Percentage packet loss: " + percentagePacketLoss);
 		if (this.progressBar != null) {
 			this.progressBar.dispatchEvent(new WindowEvent(this.progressBar, WindowEvent.WINDOW_CLOSING));
 		}
@@ -204,9 +208,13 @@ public class Task extends Thread implements ITimeoutEventHandler {
 			Utils.setFileContents(this.downloadedFileStream, storedPackets[nextExpectedPacket()]);
 
 			if (this.transferFile.length() == this.totalFileSize) { // means COMPLETE
-				System.out.println("Finished downloading " + this.getName() + ".");
+				System.out.println("Finished downloading " + this.name + ".");
 				this.endTimeSeconds = (int) System.currentTimeMillis() / 1000;
 				System.out.println("Download took " + this.getTransmissionTimeSeconds() + " seconds.");
+//				
+//				System.out.println("Transmissions: "+ this.retransmissions);
+//				System.out.println("Total filesize: " + this.totalFileSize);
+//				System.out.println("DATASIZE " + Config.DATASIZE);
 				
 				if (this.progressBar != null) {
 					this.progressBar.dispatchEvent(new WindowEvent(this.progressBar, WindowEvent.WINDOW_CLOSING));
@@ -224,11 +232,13 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	}
 
 	private void sendPacket(byte[] packet) {
+		
 		try {
 			sock.send(new DatagramPacket(packet, packet.length, addr, port));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		retransmissions++;
 		Utils.Timeout.SetTimeout(Config.TIMEOUT, this, packet);
 	}
 
@@ -238,10 +248,9 @@ public class Task extends Thread implements ITimeoutEventHandler {
 
 		int seqNo = Header.twoBytes2int(pkt[4], pkt[5]);
 		if (inSendingWindow(seqNo) && !receivedAck(seqNo)) {
-			if (Config.systemOuts)
-				System.out.println("retransmission of packet " + seqNo);
+			if (Config.systemOuts) System.out.println("retransmission of packet " + seqNo);
 			sendPacket(pkt);
-			retransmissions++;
+			
 		}
 	}
 
@@ -252,6 +261,10 @@ public class Task extends Thread implements ITimeoutEventHandler {
 	public Task.Type getType() {
 		return this.type;
 	}
+	
+	public String getName() {
+		return this.name;
+	}
 
 	public int getTotalFileSize() {
 		return this.totalFileSize;
@@ -261,12 +274,12 @@ public class Task extends Thread implements ITimeoutEventHandler {
 		return (int) this.transferFile.length();
 	}
 
-	public int getRetransmissions() {
-		if (this.type == Task.Type.STORE_ON_CLIENT) {
-			return this.retransmissions;
-		}
-		return -1;
-	}
+//	public int getRetransmissions() {
+//		if (this.type == Task.Type.STORE_ON_CLIENT) {
+//			return this.retransmissions;
+//		}
+//		return -1;
+//	}
 
 	public int getTransmissionTimeSeconds() {
 		if ((this.type == Task.Type.STORE_ON_CLIENT || this.type == Task.Type.STORE_ON_SERVER)

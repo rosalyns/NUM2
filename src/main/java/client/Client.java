@@ -167,40 +167,28 @@ public class Client implements ITimeoutEventHandler {
 	}
 	
 	private void handlePacket(DatagramPacket packet) {
-		byte[] pkt = Arrays.copyOfRange(packet.getData(), 0, packet.getLength());
-		int taskId = Header.twoBytes2int(pkt[0],pkt[1]);
-		int checksum = Header.twoBytes2int(pkt[2],pkt[3]);
-		int seqNo = Header.twoBytes2int(pkt[4],pkt[5]);
-		int ackNo = Header.twoBytes2int(pkt[6],pkt[7]);
-		byte flags = pkt[8];
-//		int windowSize = Header.twoBytes2int(pkt[10],pkt[11]);
-		
-		byte[] checksumPkt = Arrays.copyOf(pkt, pkt.length);
-		checksumPkt[2] = 0x00;
-		checksumPkt[3] = 0x00;   
-		if (!Header.checksumCorrect(checksumPkt, checksum)) {
-			if (Config.systemOuts) System.out.println("checksum not correct");
-			return;
-		} else {
-			if (Config.systemOuts) System.out.println("checksum correct");
-		}
+		byte[] rcvPkt = Arrays.copyOfRange(packet.getData(), 0, packet.getLength());
+		byte[] rcvHeader = Arrays.copyOfRange(packet.getData(), 0, Config.FTP_HEADERSIZE);
+		byte[] rcvData = new byte[rcvPkt.length - Config.FTP_HEADERSIZE];
+		System.arraycopy(rcvPkt, Config.FTP_HEADERSIZE, rcvData, 0, rcvPkt.length - Config.FTP_HEADERSIZE);
+		FTPHeader ftp = Header.dissectFTPBytes(rcvHeader);
 		
 		byte[] data;
-		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN && (flags & Config.ACK) == Config.ACK) {
-			data = new byte[pkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE];
-			System.arraycopy(pkt, Config.FTP_HEADERSIZE+Config.FILESIZE_HEADERSIZE, data, 0, pkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE);
+		if (hasFlag(ftp.getFlags(), Config.REQ_DOWN) && hasFlag(ftp.getFlags(), Config.ACK)) {
+			data = new byte[rcvPkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE];
+			System.arraycopy(rcvPkt, Config.FTP_HEADERSIZE+Config.FILESIZE_HEADERSIZE, data, 0, rcvPkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE);
 		} else {
-			data = new byte[pkt.length - Config.FTP_HEADERSIZE];
-			System.arraycopy(pkt, Config.FTP_HEADERSIZE, data, 0, pkt.length - Config.FTP_HEADERSIZE);
+			data = new byte[rcvPkt.length - Config.FTP_HEADERSIZE];
+			System.arraycopy(rcvPkt, Config.FTP_HEADERSIZE, data, 0, rcvPkt.length - Config.FTP_HEADERSIZE);
 		}
 		
-		if ((flags & Config.REQ_DOWN) == Config.REQ_DOWN && (flags & Config.ACK) == Config.ACK) {
-			int fileSize = Header.fourBytes2int(pkt[Config.FTP_HEADERSIZE],pkt[Config.FTP_HEADERSIZE + 1],pkt[Config.FTP_HEADERSIZE+2],pkt[Config.FTP_HEADERSIZE+3]);
+		if (hasFlag(ftp.getFlags(), Config.REQ_DOWN) && hasFlag(ftp.getFlags(), Config.ACK)) {
+			int fileSize = Header.fourBytes2int(rcvPkt[Config.FTP_HEADERSIZE],rcvPkt[Config.FTP_HEADERSIZE + 1],rcvPkt[Config.FTP_HEADERSIZE+2],rcvPkt[Config.FTP_HEADERSIZE+3]);
 			if (Config.systemOuts) System.out.println("filesize is " + fileSize);
 			if (!requestedDowns.isEmpty()) {
 				Task t = requestedDowns.poll();
 				t.setFileSize(fileSize);
-				t.setId(taskId);
+				t.setId(ftp.getTaskId());
 				tasks.put(t.getTaskId(), t);
 				
 				ProgressGUI progressBar = new ProgressGUI("Downloading "+ t.getName());
@@ -209,38 +197,38 @@ public class Client implements ITimeoutEventHandler {
 				t.setGUI(progressBar);
 			}
 			
-		} else if ((flags & Config.REQ_UP) == Config.REQ_UP && (flags & Config.ACK) == Config.ACK) {
+		} else if (hasFlag(ftp.getFlags(), Config.REQ_UP) && hasFlag(ftp.getFlags(), Config.ACK)) {
 			if (!requestedUps.isEmpty()) {
 				Task t = requestedUps.poll();
-				t.setId(taskId);
+				t.setId(ftp.getTaskId());
 				tasks.put(t.getTaskId(), t);
-				t.start();
+				Thread taskThread = new Thread(t);
+				taskThread.start();
 				
 				ProgressGUI progressBar = new ProgressGUI("Uploading " + t.getName());
 				Thread guiThread = new Thread(progressBar);
 				guiThread.start();
 				t.setGUI(progressBar);
 			}
-		} else if ((flags & Config.TRANSFER) == Config.TRANSFER && (flags & Config.ACK) == Config.ACK) {
-			Task t = tasks.get(taskId);
-			t.acked(ackNo);
+		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER) && hasFlag(ftp.getFlags(), Config.ACK)) {
+			Task t = tasks.get(ftp.getTaskId());
+			t.acked(ftp.getAckNo());
 			t.updateProgressBar();
-		} else if ((flags & Config.TRANSFER) == Config.TRANSFER) {
-			Task t = tasks.get(taskId);
+		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER)) {
+			Task t = tasks.get(ftp.getTaskId());
 			if (t == null) {
-				System.out.println("Cannot find task #" + taskId);
+				System.out.println("Cannot find task #" + ftp.getTaskId());
 				tasks.keySet().forEach((key) -> System.out.println(key));
 			} else {
-			t.updateProgressBar();
-			WritingThread.getInstance().addToQueue(new DataFragment(t, seqNo, data));
-			byte[] header = Header.ftp(taskId, 3, seqNo, Config.ACK | Config.TRANSFER, 0xffffffff);
-			byte[] pktWithChecksum = Header.addChecksum(header, Header.crc16(header));
-			this.sendPacket(pktWithChecksum);
+				t.updateProgressBar();
+				WritingThread.getInstance().addToQueue(new DataFragment(t, ftp.getSeqNo(), data));
+				byte[] sndHeader = Header.ftp(new FTPHeader(ftp.getTaskId(), 3, ftp.getSeqNo(), Config.ACK | Config.TRANSFER, 0xffffffff));
+				this.sendPacket(sndHeader);
 			}
 			
-		} else if ((flags & Config.STATS) == Config.STATS) {
+		} else if (hasFlag(ftp.getFlags(), Config.STATS)) {
 			System.out.println("Packet has STATS flag set"); 
-		} else if ((flags & Config.LIST) == Config.LIST && (flags & Config.ACK) == Config.ACK) {
+		} else if (hasFlag(ftp.getFlags(), Config.LIST) && hasFlag(ftp.getFlags(), Config.ACK)) {
 			String files = new String(data);
 			view.showFilesOnServer(files.split(" "));
 		}
@@ -256,15 +244,13 @@ public class Client implements ITimeoutEventHandler {
 	
 	
 	public void askForFiles() {
-		byte[] header = Header.ftp(0, RANDOM_SEQ, 0, Config.LIST, 0xffffffff);
-		byte[] pktWithChecksum = Header.addChecksum(header, Header.crc16(header));
-		sendPacket(pktWithChecksum);
+		byte[] sndHeader = Header.ftp(new FTPHeader(0, RANDOM_SEQ, 0, Config.LIST, 0xffffffff));
+		sendPacket(sndHeader);
 	}
 	
 	public void askForStatistics() {
-		byte[] header = Header.ftp(0, RANDOM_SEQ, 0, Config.STATS, 0xffffffff);
-		byte[] pktWithChecksum = Header.addChecksum(header, Header.crc16(header));
-		sendPacket(pktWithChecksum);
+		byte[] sndHeader = Header.ftp(new FTPHeader(0, RANDOM_SEQ, 0, Config.STATS, 0xffffffff));
+		sendPacket(sndHeader);
 	}
 	
 	public void askForProgress() {
@@ -274,31 +260,34 @@ public class Client implements ITimeoutEventHandler {
 	public void uploadFile(File file) {
 		int fileSize = Utils.getFileSize(file.getPath());
 		
-		byte[] header = Header.ftp(0, RANDOM_SEQ, 0,Config.REQ_UP, 0xffffffff);
-		byte[] sizeHeader = Header.fileSize(fileSize);
-		byte[] pkt = Utils.mergeArrays(header, sizeHeader, file.getName().getBytes());
-		byte[] pktWithChecksum = Header.addChecksum(pkt, Header.crc16(pkt));
+		byte[] sndHeader = Header.ftp(new FTPHeader(0, RANDOM_SEQ, 0,Config.REQ_UP, 0xffffffff));
+		byte[] sndHeader2 = Header.fileSize(fileSize);
+		byte[] sndPkt = Utils.mergeArrays(sndHeader, sndHeader2, file.getName().getBytes());
 		if (Config.systemOuts) System.out.println("Sending packet with seq_no " + RANDOM_SEQ + " and fileSize " + fileSize);
 		
 		Task t = new Task(Task.Type.SEND_FROM_CLIENT, file, sock, serverIp, port, fileSize);
+		
 		requestedUps.add(t);
 		
-		sendPacket(pktWithChecksum);
+		sendPacket(sndPkt);
 	}
 	
 	public void downloadFile(File file) {
-		byte[] header = Header.ftp(0, RANDOM_SEQ, 0, Config.REQ_DOWN,	0xffffffff);
-		byte[] pkt = Utils.mergeArrays(header, file.getName().getBytes());
-		byte[] pktWithChecksum = Header.addChecksum(pkt, Header.crc16(pkt));
+		byte[] sndHeader = Header.ftp(new FTPHeader(0, RANDOM_SEQ, 0, Config.REQ_DOWN,	0xffffffff));
+		byte[] sndPkt = Utils.mergeArrays(sndHeader, file.getName().getBytes());
 		Task t = new Task(Task.Type.STORE_ON_CLIENT, file, sock, serverIp, port, 0);
 		requestedDowns.add(t);
 		
-		sendPacket(pktWithChecksum);
+		sendPacket(sndPkt);
 	}
 	
 	private DatagramPacket getEmptyPacket() {
 		byte[] data = new byte[Config.FTP_HEADERSIZE + Config.DATASIZE];
 		return new DatagramPacket(data, data.length);
+	}
+	
+	private boolean hasFlag(int allFlags, int flag) {
+		return (allFlags & flag) == flag;
 	}
 	
 	private void sendPacket(byte[] packet) {
