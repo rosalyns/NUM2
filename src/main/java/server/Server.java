@@ -98,10 +98,9 @@ public class Server {
 			currentTaskId++;
 			
 			byte[] sndHeader = Header.ftp(new FTPHeader(t.getTaskId(), RANDOM_SEQ, ftp.getSeqNo(), Config.ACK | Config.REQ_DOWN, 0xffffffff));//TODO think about seqNo?
-			byte[] sizeHeader = Header.fileSize(fileSize);
-			byte[] packetToSend = Utils.mergeArrays(sndHeader, sizeHeader);
-			byte[] pktWithChecksum = Header.addChecksum(packetToSend, Header.crc16(packetToSend));
-			this.sendPacket(pktWithChecksum, packet.getAddress(), packet.getPort());
+			byte[] sndSizeHeader = Header.fileSize(fileSize);
+			byte[] sndPkt = Utils.mergeArrays(sndHeader, sndSizeHeader);
+			this.sendPacket(sndPkt, packet.getAddress(), packet.getPort());
 			
 			Thread taskThread = new Thread(t);
 			taskThread.start();

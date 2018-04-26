@@ -82,21 +82,20 @@ public class Task extends Observable implements ITimeoutEventHandler, Runnable {
 		while (!lastPacket) {
 			while (!lastPacket && inSendingWindow(sequenceNumber)) {
 
-				byte[] header = Header.ftp(new FTPHeader(this.id, sequenceNumber, 0, Config.TRANSFER, 0xffffffff));
-				byte[] data = null;
+				byte[] sndHeader = Header.ftp(new FTPHeader(this.id, sequenceNumber, 0, Config.TRANSFER, 0xffffffff));
+				byte[] sndData = null;
 				try {
-					data = Utils.getNextContents(fileToUpload);
+					sndData = Utils.getNextContents(fileToUpload);
 					
 				} catch (IOException e) {
 					e.printStackTrace();
 					lastPacket = true;
 				}
 				
-				byte[] pkt = Utils.mergeArrays(header, data);
-				byte[] pktWithChecksum = Header.addChecksum(pkt, Header.crc16(pkt));
-				sendPacket(pktWithChecksum);
+				byte[] sndPkt = Utils.mergeArrays(sndHeader, sndData);
+				sendPacket(sndPkt);
 
-				lastPacket = data.length < Config.DATASIZE;
+				lastPacket = sndData.length < Config.DATASIZE;
 
 				if (Config.systemOuts)
 					System.out.println("Sending packet with seq_no " + sequenceNumber);

@@ -1,7 +1,5 @@
 package general;
 
-import java.util.Arrays;
-
 public class Header {
 
 	private Header() {}
@@ -14,28 +12,24 @@ public class Header {
 		header[0] = task[0];
 		header[1] = task[1];
 		
-		//checksum
-		header[2] = 0x00;
-		header[3] = 0x00;
-		
 		//seq_number
 		byte[] seq = int2twoBytes(ftp.getSeqNo());
-		header[4] = seq[0];
-		header[5] = seq[1];
+		header[2] = seq[0];
+		header[3] = seq[1];
 		
 		//ack_number
 		byte[] ack = int2twoBytes(ftp.getAckNo());
-		header[6] = ack[0];
-		header[7] = ack[1];
+		header[4] = ack[0];
+		header[5] = ack[1];
 		
 		//flags: req_upload/upload/req_download/download/stats/ACK/pause
-		header[8] = (byte) ftp.getFlags();
-		header[9] = seq[1];
+		header[6] = (byte) ftp.getFlags();
+		header[7] = seq[1];
 		
 		//window_size
 		byte[] window = int2twoBytes(ftp.getWindowSize());
-		header[10] = window[0];
-		header[11] = window[1];
+		header[8] = window[0];
+		header[9] = window[1];
 		
 		return header;
 	}
@@ -43,7 +37,6 @@ public class Header {
 	public static FTPHeader dissectFTPBytes(byte[] header) {
 		
 		int taskId = Header.twoBytes2int(header[0],header[1]);
-//		int checksum = Header.twoBytes2int(header[2],header[3]);
 		int seqNo = Header.twoBytes2int(header[4],header[5]);
 		int ackNo = Header.twoBytes2int(header[6],header[7]);
 		byte flags = header[8];
