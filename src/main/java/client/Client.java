@@ -20,7 +20,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 
 import general.*;
-import server.DataFragment;
 
 public class Client implements ITimeoutEventHandler {
 
@@ -43,8 +42,8 @@ public class Client implements ITimeoutEventHandler {
 	private DatagramSocket sock;
 	private FTPView view;
 	private Map<Integer, Task> tasks;
-	private Queue<Task> requestedUps;
-	private Queue<Task> requestedDowns;
+	private Queue<SendTask> requestedUps;
+	private Queue<StoreTask> requestedDowns;
 
 	// whether the simulation is finished
 	private boolean simulationFinished = false;
@@ -59,9 +58,6 @@ public class Client implements ITimeoutEventHandler {
 		this.sock = new DatagramSocket(52123);
 		this.sock.setBroadcast(true);
 		this.view = new FTPGUI(this);
-		
-		Thread writingThread = new Thread(WritingThread.getInstance());
-		writingThread.start();
 	}
 	
 	public void run() {
@@ -186,10 +182,13 @@ public class Client implements ITimeoutEventHandler {
 			int fileSize = Header.fourBytes2int(rcvPkt[Config.FTP_HEADERSIZE],rcvPkt[Config.FTP_HEADERSIZE + 1],rcvPkt[Config.FTP_HEADERSIZE+2],rcvPkt[Config.FTP_HEADERSIZE+3]);
 			if (Config.systemOuts) System.out.println("filesize is " + fileSize);
 			if (!requestedDowns.isEmpty()) {
-				Task t = requestedDowns.poll();
+				StoreTask t = requestedDowns.poll();
 				t.setFileSize(fileSize);
 				t.setId(ftp.getTaskId());
 				tasks.put(t.getTaskId(), t);
+				
+				Thread taskThread = new Thread(t);
+				taskThread.start();
 				
 				ProgressGUI progressBar = new ProgressGUI("Downloading "+ t.getName());
 				Thread guiThread = new Thread(progressBar);
@@ -199,9 +198,10 @@ public class Client implements ITimeoutEventHandler {
 			
 		} else if (hasFlag(ftp.getFlags(), Config.REQ_UP) && hasFlag(ftp.getFlags(), Config.ACK)) {
 			if (!requestedUps.isEmpty()) {
-				Task t = requestedUps.poll();
+				SendTask t = requestedUps.poll();
 				t.setId(ftp.getTaskId());
 				tasks.put(t.getTaskId(), t);
+				
 				Thread taskThread = new Thread(t);
 				taskThread.start();
 				
@@ -211,17 +211,19 @@ public class Client implements ITimeoutEventHandler {
 				t.setGUI(progressBar);
 			}
 		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER) && hasFlag(ftp.getFlags(), Config.ACK)) {
-			Task t = tasks.get(ftp.getTaskId());
+			SendTask t = (SendTask) tasks.get(ftp.getTaskId());
 			t.acked(ftp.getAckNo());
 			t.updateProgressBar();
 		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER)) {
-			Task t = tasks.get(ftp.getTaskId());
+			StoreTask t = (StoreTask) tasks.get(ftp.getTaskId());
 			if (t == null) {
 				System.out.println("Cannot find task #" + ftp.getTaskId());
 				tasks.keySet().forEach((key) -> System.out.println(key));
 			} else {
 				t.updateProgressBar();
-				WritingThread.getInstance().addToQueue(new DataFragment(t, ftp.getSeqNo(), data));
+				t.addToQueue(new DataFragment(ftp.getSeqNo(), data));
+//				WritingThread.getInstance().addToQueue(new DataFragment(t, ftp.getSeqNo(), data));
+				
 				byte[] sndHeader = Header.ftp(new FTPHeader(ftp.getTaskId(), 3, ftp.getSeqNo(), Config.ACK | Config.TRANSFER, 0xffffffff));
 				this.sendPacket(sndHeader);
 			}
@@ -265,7 +267,7 @@ public class Client implements ITimeoutEventHandler {
 		byte[] sndPkt = Utils.mergeArrays(sndHeader, sndHeader2, file.getName().getBytes());
 		if (Config.systemOuts) System.out.println("Sending packet with seq_no " + RANDOM_SEQ + " and fileSize " + fileSize);
 		
-		Task t = new Task(Task.Type.SEND_FROM_CLIENT, file, sock, serverIp, port, fileSize);
+		SendTask t = new SendTask(file, sock, serverIp, port, fileSize);
 		
 		requestedUps.add(t);
 		
@@ -275,7 +277,7 @@ public class Client implements ITimeoutEventHandler {
 	public void downloadFile(File file) {
 		byte[] sndHeader = Header.ftp(new FTPHeader(0, RANDOM_SEQ, 0, Config.REQ_DOWN,	0xffffffff));
 		byte[] sndPkt = Utils.mergeArrays(sndHeader, file.getName().getBytes());
-		Task t = new Task(Task.Type.STORE_ON_CLIENT, file, sock, serverIp, port, 0);
+		StoreTask t = new StoreTask(file, sock, serverIp, port, 0);
 		requestedDowns.add(t);
 		
 		sendPacket(sndPkt);

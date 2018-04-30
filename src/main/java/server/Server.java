@@ -45,9 +45,7 @@ public class Server {
 		this.port = portArg;
 		this.tasks = new HashMap<Integer, Task>();
 		Thread discoveryThread = new Thread(DiscoveryThread.getInstance());
-		Thread writingThread = new Thread(WritingThread.getInstance());
 		discoveryThread.start();
-		writingThread.start();
 		
 		Utils.Timeout.Start();
 	}
@@ -92,7 +90,7 @@ public class Server {
 		if (hasFlag(ftp.getFlags(), Config.REQ_DOWN)) {
 			int fileSize = Utils.getFileSize(path + new String(rcvData));
 			File file = new File(path + new String(rcvData));
-			Task t = new Task(Task.Type.SEND_FROM_SERVER, file, sock, packet.getAddress(), packet.getPort(), fileSize);
+			SendTask t = new SendTask(file, sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;
@@ -115,7 +113,7 @@ public class Server {
 			//TODO don't overwrite other files, check if name already exists
 			
 			File file = new File(path + new String(rcvData));
-			Task t = new Task(Task.Type.STORE_ON_SERVER, file, sock, packet.getAddress(), packet.getPort(), fileSize);
+			StoreTask t = new StoreTask(file, sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;
@@ -123,15 +121,19 @@ public class Server {
 			byte[] sndHeader = Header.ftp(new FTPHeader(t.getTaskId(), RANDOM_SEQ, ftp.getSeqNo(), Config.ACK | Config.REQ_UP, 0xffffffff));
 			this.sendPacket(sndHeader, packet.getAddress(), packet.getPort());
 			
+			Thread taskThread = new Thread(t);
+			taskThread.start();
+			
 		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER) && hasFlag(ftp.getFlags(), Config.ACK)) {
 			
-			Task task = tasks.get(ftp.getTaskId());
+			SendTask task = (SendTask) tasks.get(ftp.getTaskId());
 			task.acked(ftp.getAckNo());
 			
 		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER)) {
 			
-			Task t = tasks.get(ftp.getTaskId());
-			WritingThread.getInstance().addToQueue(new DataFragment(t, ftp.getSeqNo(), rcvData));
+			StoreTask t = (StoreTask) tasks.get(ftp.getTaskId());
+			t.addToQueue(new DataFragment(ftp.getSeqNo(), rcvData));
+//			WritingThread.getInstance().addToQueue(new DataFragment(t, ftp.getSeqNo(), rcvData));
 			
 			byte[] sndHeader = Header.ftp(new FTPHeader(t.getTaskId(), RANDOM_SEQ, ftp.getSeqNo(), Config.ACK | Config.TRANSFER, 0xffffffff));
 			this.sendPacket(sndHeader, packet.getAddress(), packet.getPort());

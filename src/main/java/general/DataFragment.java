@@ -1,21 +1,15 @@
-package server;
-
-import general.Task;
+package general;
 
 public class DataFragment {
-	private Task task;
 	private int seqNo;
 	private byte[] data;
 	
-	public DataFragment(Task task, int seqNo, byte[] data) {
-		this.task = task;
+	public DataFragment(int seqNo, byte[] data) {
 		this.seqNo = seqNo;
 		this.data = data;
 	}
 	
-	public Task getTask() {
-		return this.task;
-	}
+	
 	public int getSeqNo() {
 		return this.seqNo;
 	}

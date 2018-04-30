@@ -37,10 +37,10 @@ public class Header {
 	public static FTPHeader dissectFTPBytes(byte[] header) {
 		
 		int taskId = Header.twoBytes2int(header[0],header[1]);
-		int seqNo = Header.twoBytes2int(header[4],header[5]);
-		int ackNo = Header.twoBytes2int(header[6],header[7]);
-		byte flags = header[8];
-		int windowSize = Header.twoBytes2int(header[10],header[11]);
+		int seqNo = Header.twoBytes2int(header[2],header[3]);
+		int ackNo = Header.twoBytes2int(header[4],header[5]);
+		byte flags = header[6];
+		int windowSize = Header.twoBytes2int(header[8],header[9]);
 		
 		return new FTPHeader(taskId, seqNo, ackNo, flags, windowSize);
 	}

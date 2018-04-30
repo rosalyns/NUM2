@@ -8,3 +8,4 @@
 - client + server superklasse maken die allebei luisteren.
 - wait notify ipv busy wait
 - tasks kunnen niet bij socket.
+- meerdere requests up/down tegelijk
