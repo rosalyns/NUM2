@@ -193,7 +193,7 @@ public class Client implements ITimeoutEventHandler {
 				ProgressGUI progressBar = new ProgressGUI("Downloading "+ t.getName());
 				Thread guiThread = new Thread(progressBar);
 				guiThread.start();
-				t.setGUI(progressBar);
+				t.addObserver(progressBar);
 			}
 			
 		} else if (hasFlag(ftp.getFlags(), Config.REQ_UP) && hasFlag(ftp.getFlags(), Config.ACK)) {
@@ -208,21 +208,18 @@ public class Client implements ITimeoutEventHandler {
 				ProgressGUI progressBar = new ProgressGUI("Uploading " + t.getName());
 				Thread guiThread = new Thread(progressBar);
 				guiThread.start();
-				t.setGUI(progressBar);
+				t.addObserver(progressBar);
 			}
 		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER) && hasFlag(ftp.getFlags(), Config.ACK)) {
 			SendTask t = (SendTask) tasks.get(ftp.getTaskId());
 			t.acked(ftp.getAckNo());
-			t.updateProgressBar();
 		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER)) {
 			StoreTask t = (StoreTask) tasks.get(ftp.getTaskId());
 			if (t == null) {
 				System.out.println("Cannot find task #" + ftp.getTaskId());
 				tasks.keySet().forEach((key) -> System.out.println(key));
 			} else {
-				t.updateProgressBar();
 				t.addToQueue(new DataFragment(ftp.getSeqNo(), data));
-//				WritingThread.getInstance().addToQueue(new DataFragment(t, ftp.getSeqNo(), data));
 				
 				byte[] sndHeader = Header.ftp(new FTPHeader(ftp.getTaskId(), 3, ftp.getSeqNo(), Config.ACK | Config.TRANSFER, 0xffffffff));
 				this.sendPacket(sndHeader);

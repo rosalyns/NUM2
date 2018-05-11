@@ -1,6 +1,5 @@
 package general;
 
-import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -77,10 +76,10 @@ public class StoreTask extends Task {
 				this.endTimeSeconds = (int) System.currentTimeMillis() / 1000;
 				System.out.println("Download took " + this.getTransmissionTimeSeconds() + " seconds.");
 				
-				if (this.progressBar != null) {
-					this.progressBar.dispatchEvent(new WindowEvent(this.progressBar, WindowEvent.WINDOW_CLOSING));
-				}
-
+				int percentageProgress = (int) ((this.getCurrentFileSize() / (double) this.totalFileSize) * 100);
+				this.setChanged();
+				this.notifyObservers(percentageProgress);
+				
 				try {
 					this.downloadedFileStream.close();
 				} catch (IOException e) {
@@ -123,14 +122,5 @@ public class StoreTask extends Task {
 	public void setFileSize(int size) {
 		this.totalFileSize = size;
 	}
-
-	@Override
-	public void updateProgressBar() {
-		progressBar.updateProgress((int) ((this.getCurrentFileSize() / (double) this.totalFileSize) * 100));
-	}
-	
-	
-	
-	
 	
 }

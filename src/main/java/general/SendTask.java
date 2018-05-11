@@ -1,12 +1,10 @@
 package general;
 
-import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-
 
 public class SendTask extends Task implements ITimeoutEventHandler{
 
@@ -88,13 +86,11 @@ public class SendTask extends Task implements ITimeoutEventHandler{
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
 		this.endTimeSeconds = (int) System.currentTimeMillis() / 1000;
 		System.out.println("Finished uploading " + this.name + ".");// boolean finished
 		double percentagePacketLoss = (double) (this.retransmissions / (Math.ceil(this.totalFileSize / (double) Config.DATASIZE))) * 100;
 		System.out.println("Percentage packet loss: " + percentagePacketLoss);
-		if (this.progressBar != null) {
-			this.progressBar.dispatchEvent(new WindowEvent(this.progressBar, WindowEvent.WINDOW_CLOSING));
-		}
 	}
 	
 	public void acked(int ackNo) {
@@ -111,6 +107,10 @@ public class SendTask extends Task implements ITimeoutEventHandler{
 			if (Config.systemOuts) System.out.println("LAR is now " + LAR + ".");
 			ackedPackets[LAR] = false;
 		}
+		
+		int percentageProgress = (int) ((acksReceived / (Math.ceil(this.totalFileSize / (double) Config.DATASIZE))) * 100);
+		this.setChanged();
+		this.notifyObservers(percentageProgress);
 	}
 	
 	private int nextExpectedAck() {
@@ -128,9 +128,6 @@ public class SendTask extends Task implements ITimeoutEventHandler{
 		return ackedPackets[packetNumber];
 	}
 	
-	
-	
-	
 	@Override
 	public void TimeoutElapsed(Object tag) {
 		byte[] pkt = (byte[]) tag;
@@ -142,12 +139,6 @@ public class SendTask extends Task implements ITimeoutEventHandler{
 			Utils.Timeout.SetTimeout(Config.TIMEOUT, this, pkt);
 			retransmissions++;
 		}
-	}
-
-
-	@Override
-	public void updateProgressBar() {
-		progressBar.updateProgress((int) ((acksReceived / (Math.ceil(this.totalFileSize / (double) Config.DATASIZE))) * 100));
 	}
 
 }

@@ -1,5 +1,8 @@
 package client.progressview;
 
+import java.awt.event.WindowEvent;
+import java.util.Observable;
+
 import javax.swing.JFrame;
 import javax.swing.JProgressBar;
 
@@ -34,11 +37,16 @@ public class ProgressGUI extends JFrame implements ProgressView {
 	}
 
 	@Override
-	public void updateProgress(int percentage) {
+	public void update(Observable o, Object arg) {
+		int percentage = (int) arg;
 		if (pbar != null) {
-		pbar.setValue(percentage);
+			pbar.setValue(percentage);
+		}
+		
+		if (percentage >= 100) {
+			this.dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
 		}
 	}
-	
+
 	
 }

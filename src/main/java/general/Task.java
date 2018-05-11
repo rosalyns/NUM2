@@ -27,7 +27,7 @@ public abstract class Task extends Observable implements Runnable {
 		this.name = file.getName();
 	}
 	
-	abstract void updateProgressBar();
+//	abstract void updateProgressBar();
 
 	protected void sendPacket(byte[] packet) {
 		try {
@@ -39,10 +39,6 @@ public abstract class Task extends Observable implements Runnable {
 
 	public void setId(int id) {
 		this.id = id;
-	}
-
-	public void setGUI(ProgressGUI progressGUI) {
-		this.progressBar = progressGUI;
 	}
 
 	public int getTaskId() {

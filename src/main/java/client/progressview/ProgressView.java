@@ -1,7 +1,8 @@
 package client.progressview;
 
-public interface ProgressView extends Runnable {
+import java.util.Observer;
+
+public interface ProgressView extends Runnable, Observer {
 	
 	public void run();
-	public void updateProgress(int percentage);
 }
