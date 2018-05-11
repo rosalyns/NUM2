@@ -1,5 +1,7 @@
 package general;
 
+import java.util.Arrays;
+
 public class Header {
 
 	private Header() {}
@@ -36,11 +38,11 @@ public class Header {
 	
 	public static FTPHeader dissectFTPBytes(byte[] header) {
 		
-		int taskId = Header.twoBytes2int(header[0],header[1]);
-		int seqNo = Header.twoBytes2int(header[2],header[3]);
-		int ackNo = Header.twoBytes2int(header[4],header[5]);
+		int taskId = Header.bytes2int(header[0],header[1]);
+		int seqNo = Header.bytes2int(header[2],header[3]);
+		int ackNo = Header.bytes2int(header[4],header[5]);
 		byte flags = header[6];
-		int windowSize = Header.twoBytes2int(header[8],header[9]);
+		int windowSize = Header.bytes2int(header[8],header[9]);
 		
 		return new FTPHeader(taskId, seqNo, ackNo, flags, windowSize);
 	}
@@ -55,6 +57,18 @@ public class Header {
 		header[3] = size[3];
 		
 		return header;
+	}
+	
+	public static byte[] int2XBytes(int no, int noBytes) {
+		//throw exception
+		
+		byte[] bytes = new byte[noBytes];
+		
+		for (int i = 0; i < bytes.length; i++) {
+			bytes[bytes.length - 1 - i] = (byte) ((no >> (8 * i)) & 0xFF);
+		}
+		
+		return bytes;
 	}
 	
 	public static byte[] int2twoBytes(int no) {
@@ -73,12 +87,45 @@ public class Header {
 		return bytes;
 	}
 	
-	public static int fourBytes2int(byte a, byte b, byte c, byte d) {
-		return ((a & 0xFF) << 24) | ((b & 0xFF) << 16) | ((c & 0xFF) << 8) | (d & 0xFF);
+	private static int xbytes2int(byte...array) {
+		int result = 0;
+		
+		for (int i = 0; i < array.length; i++) {
+			result = result | ((array[array.length - 1 - i] & 0xFF) << (8 * i));
+		}
+		
+		return result;
 	}
 	
-	public static int twoBytes2int(int a, int b) {
-		return ((a & 0xFF) << 8) | (b & 0xFF);
+	public static int bytes2int(byte a) {
+		return Header.xbytes2int(a);
+	}
+
+	public static int bytes2int(byte a, byte b) {
+		return Header.xbytes2int(a, b);
+	}
+
+	public static int bytes2int(byte a, byte b, byte c) {
+		return Header.xbytes2int(a, b, c);
+	}
+
+	public static int bytes2int(byte a, byte b, byte c, byte d) {
+		return Header.xbytes2int(a, b, c, d);
+	}
+	
+	public static byte[] mergeArrays(byte[]... arrays) {
+		byte[] first = arrays[0];
+
+		for (int i = 1; i < arrays.length; i++) {
+			byte[] toAppend = arrays[i];
+
+			int oldlength = first.length;
+			int extralen = toAppend.length;
+			first = Arrays.copyOf(first, oldlength + extralen);
+			System.arraycopy(toAppend, 0, first, oldlength, extralen);
+		}
+
+		return first;
 	}
 	
 	public static boolean checksumCorrect(byte[] pkt, int checksum) {

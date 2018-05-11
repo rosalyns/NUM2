@@ -135,7 +135,7 @@ public class SendTask extends Task implements ITimeoutEventHandler{
 	public void TimeoutElapsed(Object tag) {
 		byte[] pkt = (byte[]) tag;
 
-		int seqNo = Header.twoBytes2int(pkt[2], pkt[3]);
+		int seqNo = Header.bytes2int(pkt[2], pkt[3]);
 		if (inSendingWindow(seqNo) && !receivedAck(seqNo)) {
 			if (Config.systemOuts) System.out.println("retransmission of packet " + seqNo);
 			sendPacket(pkt);

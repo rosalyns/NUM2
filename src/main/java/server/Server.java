@@ -107,7 +107,7 @@ public class Server {
 			rcvData = new byte[rcvPkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE];
 			System.arraycopy(rcvPkt, Config.FTP_HEADERSIZE+Config.FILESIZE_HEADERSIZE, rcvData, 0, rcvPkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE);
 			
-			int fileSize = Header.fourBytes2int(rcvPkt[Config.FTP_HEADERSIZE], rcvPkt[Config.FTP_HEADERSIZE+1], rcvPkt[Config.FTP_HEADERSIZE+2], rcvPkt[Config.FTP_HEADERSIZE+3]);
+			int fileSize = Header.bytes2int(rcvPkt[Config.FTP_HEADERSIZE], rcvPkt[Config.FTP_HEADERSIZE+1], rcvPkt[Config.FTP_HEADERSIZE+2], rcvPkt[Config.FTP_HEADERSIZE+3]);
 			if (Config.systemOuts) System.out.println("File has size " + fileSize + " bytes!");
 			//TODO check if enough space
 			//TODO don't overwrite other files, check if name already exists

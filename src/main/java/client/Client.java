@@ -179,7 +179,7 @@ public class Client implements ITimeoutEventHandler {
 		}
 		
 		if (hasFlag(ftp.getFlags(), Config.REQ_DOWN) && hasFlag(ftp.getFlags(), Config.ACK)) {
-			int fileSize = Header.fourBytes2int(rcvPkt[Config.FTP_HEADERSIZE],rcvPkt[Config.FTP_HEADERSIZE + 1],rcvPkt[Config.FTP_HEADERSIZE+2],rcvPkt[Config.FTP_HEADERSIZE+3]);
+			int fileSize = Header.bytes2int(rcvPkt[Config.FTP_HEADERSIZE],rcvPkt[Config.FTP_HEADERSIZE + 1],rcvPkt[Config.FTP_HEADERSIZE+2],rcvPkt[Config.FTP_HEADERSIZE+3]);
 			if (Config.systemOuts) System.out.println("filesize is " + fileSize);
 			if (!requestedDowns.isEmpty()) {
 				StoreTask t = requestedDowns.poll();
