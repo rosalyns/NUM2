@@ -83,8 +83,7 @@ public class Server {
 		
 		byte[] rcvPkt = Arrays.copyOfRange(packet.getData(), 0, packet.getLength());
 		byte[] rcvHeader = Arrays.copyOfRange(packet.getData(), 0, Config.FTP_HEADERSIZE);
-		byte[] rcvData = new byte[rcvPkt.length - Config.FTP_HEADERSIZE];
-		System.arraycopy(rcvPkt, Config.FTP_HEADERSIZE, rcvData, 0, rcvPkt.length - Config.FTP_HEADERSIZE);
+		byte[] rcvData = Arrays.copyOfRange(rcvPkt, Config.FTP_HEADERSIZE, rcvPkt.length);
 		FTPHeader ftp = Header.dissectFTPBytes(rcvHeader);
 		
 		if (hasFlag(ftp.getFlags(), Config.REQ_DOWN)) {
@@ -133,7 +132,6 @@ public class Server {
 			
 			StoreTask t = (StoreTask) tasks.get(ftp.getTaskId());
 			t.addToQueue(new DataFragment(ftp.getSeqNo(), rcvData));
-//			WritingThread.getInstance().addToQueue(new DataFragment(t, ftp.getSeqNo(), rcvData));
 			
 			byte[] sndHeader = Header.ftp(new FTPHeader(t.getTaskId(), RANDOM_SEQ, ftp.getSeqNo(), Config.ACK | Config.TRANSFER, 0xffffffff));
 			this.sendPacket(sndHeader, packet.getAddress(), packet.getPort());

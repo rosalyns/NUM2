@@ -165,20 +165,13 @@ public class Client implements ITimeoutEventHandler {
 	private void handlePacket(DatagramPacket packet) {
 		byte[] rcvPkt = Arrays.copyOfRange(packet.getData(), 0, packet.getLength());
 		byte[] rcvHeader = Arrays.copyOfRange(packet.getData(), 0, Config.FTP_HEADERSIZE);
-		byte[] rcvData = new byte[rcvPkt.length - Config.FTP_HEADERSIZE];
-		System.arraycopy(rcvPkt, Config.FTP_HEADERSIZE, rcvData, 0, rcvPkt.length - Config.FTP_HEADERSIZE);
+		byte[] rcvData = Arrays.copyOfRange(rcvPkt, Config.FTP_HEADERSIZE, rcvPkt.length);
 		FTPHeader ftp = Header.dissectFTPBytes(rcvHeader);
 		
-		byte[] data;
 		if (hasFlag(ftp.getFlags(), Config.REQ_DOWN) && hasFlag(ftp.getFlags(), Config.ACK)) {
-			data = new byte[rcvPkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE];
+			byte[] data = new byte[rcvPkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE];
 			System.arraycopy(rcvPkt, Config.FTP_HEADERSIZE+Config.FILESIZE_HEADERSIZE, data, 0, rcvPkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE);
-		} else {
-			data = new byte[rcvPkt.length - Config.FTP_HEADERSIZE];
-			System.arraycopy(rcvPkt, Config.FTP_HEADERSIZE, data, 0, rcvPkt.length - Config.FTP_HEADERSIZE);
-		}
-		
-		if (hasFlag(ftp.getFlags(), Config.REQ_DOWN) && hasFlag(ftp.getFlags(), Config.ACK)) {
+			
 			int fileSize = Header.bytes2int(rcvPkt[Config.FTP_HEADERSIZE],rcvPkt[Config.FTP_HEADERSIZE + 1],rcvPkt[Config.FTP_HEADERSIZE+2],rcvPkt[Config.FTP_HEADERSIZE+3]);
 			if (Config.systemOuts) System.out.println("filesize is " + fileSize);
 			if (!requestedDowns.isEmpty()) {
@@ -219,7 +212,7 @@ public class Client implements ITimeoutEventHandler {
 				System.out.println("Cannot find task #" + ftp.getTaskId());
 				tasks.keySet().forEach((key) -> System.out.println(key));
 			} else {
-				t.addToQueue(new DataFragment(ftp.getSeqNo(), data));
+				t.addToQueue(new DataFragment(ftp.getSeqNo(), rcvData));
 				
 				byte[] sndHeader = Header.ftp(new FTPHeader(ftp.getTaskId(), 3, ftp.getSeqNo(), Config.ACK | Config.TRANSFER, 0xffffffff));
 				this.sendPacket(sndHeader);
@@ -228,7 +221,7 @@ public class Client implements ITimeoutEventHandler {
 		} else if (hasFlag(ftp.getFlags(), Config.STATS)) {
 			System.out.println("Packet has STATS flag set"); 
 		} else if (hasFlag(ftp.getFlags(), Config.LIST) && hasFlag(ftp.getFlags(), Config.ACK)) {
-			String files = new String(data);
+			String files = new String(rcvData);
 			view.showFilesOnServer(files.split(" "));
 		}
 	}

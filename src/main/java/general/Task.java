@@ -27,8 +27,6 @@ public abstract class Task extends Observable implements Runnable {
 		this.name = file.getName();
 	}
 	
-//	abstract void updateProgressBar();
-
 	protected void sendPacket(byte[] packet) {
 		try {
 			sock.send(new DatagramPacket(packet, packet.length, addr, port));
