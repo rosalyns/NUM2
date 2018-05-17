@@ -5,6 +5,9 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class SendTask extends Task implements ITimeoutEventHandler{
 
@@ -17,6 +20,8 @@ public class SendTask extends Task implements ITimeoutEventHandler{
 	private int sequenceNumber = Config.FIRST_PACKET;
 	private boolean[] ackedPackets = new boolean[Config.K];
 	private boolean waitingForAcks = true;
+	private Lock l;
+	private Condition ackReceived;
 	
 	
 	public SendTask(File file, DatagramSocket sock, InetAddress addr, int port, int fileSize) {
@@ -28,6 +33,9 @@ public class SendTask extends Task implements ITimeoutEventHandler{
 		this.port = port;
 		this.transferFile = file;
 		this.totalFileSize = fileSize;
+		
+		l = new ReentrantLock();
+		ackReceived = l.newCondition();
 	}
 	
 	
@@ -71,14 +79,16 @@ public class SendTask extends Task implements ITimeoutEventHandler{
 
 			}
 
+			waitingForAcks = true;
+			l.lock();
 			while (waitingForAcks) {
-				try {
-					Thread.sleep(100);
+				try { 
+					ackReceived.await();
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
 			}
-			waitingForAcks = true;
+			l.unlock();
 		}
 
 		try {
@@ -101,9 +111,14 @@ public class SendTask extends Task implements ITimeoutEventHandler{
 		}
 
 		while (ackedPackets[nextExpectedAck()]) {
+			l.lock();
+			ackReceived.signal();
+			waitingForAcks = false;
+			l.unlock();
+			
 			LAR = nextExpectedAck();
 			acksReceived++;
-			waitingForAcks = false;
+			
 			if (Config.systemOuts) System.out.println("LAR is now " + LAR + ".");
 			ackedPackets[LAR] = false;
 		}

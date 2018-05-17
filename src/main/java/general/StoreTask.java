@@ -9,22 +9,23 @@ import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class StoreTask extends Task {
 	private Queue<DataFragment> queue;
-	
 	private File transferFile;
 	private FileOutputStream downloadedFileStream;
-	
 	private int LFR = -1;
 	private byte[][] storedPackets;
-
 	private boolean firstPacket = true;
+	private boolean queueEmpty = true;
+	private Lock l;
+	private Condition queueFilled;
 	
 	public StoreTask(File file, DatagramSocket sock, InetAddress addr, int port, int fileSize) {
 		super(file, sock, addr, port, fileSize);
-		
-		
 		
 		this.transferFile = file;
 		this.totalFileSize = fileSize;
@@ -39,20 +40,29 @@ public class StoreTask extends Task {
 		}
 		
 		this.queue = new ConcurrentLinkedQueue<>();
+		l = new ReentrantLock();
+		queueFilled = l.newCondition();
 	}
 	
 	@Override
 	public void run() {
+		//
+		
 		while(true) {
 			DataFragment tuple = queue.poll();
 			if (tuple != null) {
 				addContent(tuple.getSeqNo(), tuple.getData());
 			} else {
-				try {
-					Thread.sleep(100);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
+				l.lock();
+				queueEmpty = true;
+				while (queueEmpty) {
+					try { 
+						queueFilled.await();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
 				}
+				l.unlock();
 			}
 		}
 	}
@@ -71,14 +81,14 @@ public class StoreTask extends Task {
 			
 			Utils.setFileContents(this.downloadedFileStream, storedPackets[nextExpectedPacket()]);
 
+			int percentageProgress = (int) ((this.getCurrentFileSize() / (double) this.totalFileSize) * 100);
+			this.setChanged();
+			this.notifyObservers(percentageProgress);
+			
 			if (this.transferFile.length() == this.totalFileSize) { // means COMPLETE
 				System.out.println("Finished downloading " + this.name + ".");
 				this.endTimeSeconds = (int) System.currentTimeMillis() / 1000;
 				System.out.println("Download took " + this.getTransmissionTimeSeconds() + " seconds.");
-				
-				int percentageProgress = (int) ((this.getCurrentFileSize() / (double) this.totalFileSize) * 100);
-				this.setChanged();
-				this.notifyObservers(percentageProgress);
 				
 				try {
 					this.downloadedFileStream.close();
@@ -116,7 +126,11 @@ public class StoreTask extends Task {
 	}
 	
 	public void addToQueue(DataFragment data) {
+		queueEmpty = false;
 		queue.add(data);
+		l.lock();
+		queueFilled.signal();
+		l.unlock();
 	}
 	
 	public void setFileSize(int size) {
