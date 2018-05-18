@@ -58,7 +58,7 @@ public class Server {
 			DatagramPacket p = getEmptyPacket();
 			try {
 				sock.receive(p);
-				handlePacket(p);
+				handlePacket(convertPacket(p));
 
 			} catch (IOException e) {
 				keepAlive = false;
@@ -70,7 +70,7 @@ public class Server {
 	}
 	
 	
-	private void handlePacket(DatagramPacket packet) {
+	private void handlePacket(Packet packet) {
 		String packetString = new String(packet.getData()).trim();
 		if (packetString.equals("DISCOVER_REQUEST")) {
 			byte[] sendData = "DISCOVER_RESPONSE Hello, I'm a raspberry Pi!".getBytes();
@@ -81,20 +81,17 @@ public class Server {
 			return;
 		}
 		
-		byte[] rcvPkt = Arrays.copyOfRange(packet.getData(), 0, packet.getLength());
-		byte[] rcvHeader = Arrays.copyOfRange(packet.getData(), 0, Config.FTP_HEADERSIZE);
-		byte[] rcvData = Arrays.copyOfRange(rcvPkt, Config.FTP_HEADERSIZE, rcvPkt.length);
-		FTPHeader ftp = Header.dissectFTPBytes(rcvHeader);
+		FTPHeader ftpHeader = packet.getFtpHeader();
 		
-		if (hasFlag(ftp.getFlags(), Config.REQ_DOWN)) {
-			int fileSize = Utils.getFileSize(path + new String(rcvData));
-			File file = new File(path + new String(rcvData));
+		if (ftpHeader.hasFlag(Flag.REQ_DOWN)) {
+			int fileSize = Utils.getFileSize(path + new String(packet.getData()));
+			File file = new File(path + new String(packet.getData()));
 			SendTask t = new SendTask(file, sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;
 			
-			byte[] sndHeader = Header.ftp(new FTPHeader(t.getTaskId(), RANDOM_SEQ, ftp.getSeqNo(), Config.ACK | Config.REQ_DOWN, 0xffffffff));//TODO think about seqNo?
+			byte[] sndHeader = Header.ftp(new FTPHeader(t.getTaskId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK | Flag.REQ_DOWN, 0xffffffff));//TODO think about seqNo?
 			byte[] sndSizeHeader = Header.fileSize(fileSize);
 			byte[] sndPkt = Utils.mergeArrays(sndHeader, sndSizeHeader);
 			this.sendPacket(sndPkt, packet.getAddress(), packet.getPort());
@@ -102,51 +99,64 @@ public class Server {
 			Thread taskThread = new Thread(t);
 			taskThread.start();
 			
-		} else if (hasFlag(ftp.getFlags(), Config.REQ_UP)) {
-			rcvData = new byte[rcvPkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE];
-			System.arraycopy(rcvPkt, Config.FTP_HEADERSIZE+Config.FILESIZE_HEADERSIZE, rcvData, 0, rcvPkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE);
+		} else if (ftpHeader.hasFlag(Flag.REQ_UP)) {
+			byte[] data = new byte[packet.getData().length - Config.FILESIZE_HEADERSIZE];
+			System.arraycopy(packet.getData(), Config.FILESIZE_HEADERSIZE, data, 0, packet.getData().length - Config.FILESIZE_HEADERSIZE);
 			
-			int fileSize = Header.bytes2int(rcvPkt[Config.FTP_HEADERSIZE], rcvPkt[Config.FTP_HEADERSIZE+1], rcvPkt[Config.FTP_HEADERSIZE+2], rcvPkt[Config.FTP_HEADERSIZE+3]);
+			int fileSize = Header.bytes2int(packet.getData()[0], packet.getData()[1], packet.getData()[2], packet.getData()[3]);
 			if (Config.systemOuts) System.out.println("File has size " + fileSize + " bytes!");
 			//TODO check if enough space
 			//TODO don't overwrite other files, check if name already exists
 			
-			File file = new File(path + new String(rcvData));
+			File file = new File(path + new String(data));
 			StoreTask t = new StoreTask(file, sock, packet.getAddress(), packet.getPort(), fileSize);
 			t.setId(currentTaskId);
 			tasks.put(t.getTaskId(), t);
 			currentTaskId++;
 			
-			byte[] sndHeader = Header.ftp(new FTPHeader(t.getTaskId(), RANDOM_SEQ, ftp.getSeqNo(), Config.ACK | Config.REQ_UP, 0xffffffff));
+			byte[] sndHeader = Header.ftp(new FTPHeader(t.getTaskId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK | Flag.REQ_UP, 0xffffffff));
 			this.sendPacket(sndHeader, packet.getAddress(), packet.getPort());
 			
 			Thread taskThread = new Thread(t);
 			taskThread.start();
 			
-		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER) && hasFlag(ftp.getFlags(), Config.ACK)) {
+		} else if (ftpHeader.hasFlag(Flag.TRANSFER) && ftpHeader.hasFlag(Flag.ACK)) {
 			
-			SendTask task = (SendTask) tasks.get(ftp.getTaskId());
-			task.acked(ftp.getAckNo());
+			SendTask task = (SendTask) tasks.get(ftpHeader.getTaskId());
+			task.acked(ftpHeader.getAckNo());
 			
-		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER)) {
+		} else if (ftpHeader.hasFlag(Flag.TRANSFER)) {
 			
-			StoreTask t = (StoreTask) tasks.get(ftp.getTaskId());
-			t.addToQueue(new DataFragment(ftp.getSeqNo(), rcvData));
+			StoreTask t = (StoreTask) tasks.get(ftpHeader.getTaskId());
+			t.addToQueue(new DataFragment(ftpHeader.getSeqNo(), packet.getData()));
 			
-			byte[] sndHeader = Header.ftp(new FTPHeader(t.getTaskId(), RANDOM_SEQ, ftp.getSeqNo(), Config.ACK | Config.TRANSFER, 0xffffffff));
+			byte[] sndHeader = Header.ftp(new FTPHeader(t.getTaskId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK | Flag.TRANSFER, 0xffffffff));
 			this.sendPacket(sndHeader, packet.getAddress(), packet.getPort());
 			
-		} else if (hasFlag(ftp.getFlags(), Config.STATS)) {
+		} else if (ftpHeader.hasFlag(Flag.STATS)) {
 			//TODO
-		} else if (hasFlag(ftp.getFlags(), Config.LIST)) {
+		} else if (ftpHeader.hasFlag(Flag.LIST)) {
 			this.allFiles = folder.listFiles();
-			byte[] sndHeader = Header.ftp(new FTPHeader(0, RANDOM_SEQ, ftp.getSeqNo(), Config.ACK | Config.LIST, 0xffffffff));
+			byte[] sndHeader = Header.ftp(new FTPHeader(0, RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK | Flag.LIST, 0xffffffff));
 			byte[] sndData = listFiles().getBytes();
 			byte[] sndPkt = Utils.mergeArrays(sndHeader, sndData);
 			this.sendPacket(sndPkt,  packet.getAddress(), packet.getPort());
-		} else if (hasFlag(ftp.getFlags(), Config.PAUSE)) {
+		} else if (ftpHeader.hasFlag(Flag.PAUSE)) {
 			//TODO
 		}
+	}
+	
+	/**
+	 * Dissects packet and returns a byte array with the header and the data separated.
+	 * @param pkt to be dissected
+	 * @return byte array of size 2 with [byte[] header, byte[] data]
+	 */
+	private Packet convertPacket(DatagramPacket pkt) {
+		byte[] rcvPkt = Arrays.copyOfRange(pkt.getData(), 0, pkt.getLength());
+		Packet result = new Packet(Arrays.copyOfRange(rcvPkt, 0, Config.FTP_HEADERSIZE), Arrays.copyOfRange(rcvPkt, Config.FTP_HEADERSIZE, rcvPkt.length));
+		result.setAddress(pkt.getAddress());
+		result.setPort(pkt.getPort());
+		return result;
 	}
 	
 	private String listFiles() {
@@ -160,10 +170,6 @@ public class Server {
 	private DatagramPacket getEmptyPacket() {
 		byte[] data = new byte[Config.FTP_HEADERSIZE + Config.DATASIZE];
 		return new DatagramPacket(data, data.length);
-	}
-	
-	private boolean hasFlag(int allFlags, int flag) {
-		return (allFlags & flag) == flag;
 	}
 	
 	private void sendPacket(byte[] packet, InetAddress addr, int port) {

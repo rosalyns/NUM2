@@ -1,8 +1,12 @@
 package general;
 
+import java.net.InetAddress;
+
 public class Packet {
 	private FTPHeader ftpHeader;
 	private byte[] data;
+	private InetAddress addr;
+	private int port;
 	
 	public Packet(byte[] ftpHeader, byte[] data) {
 		this.ftpHeader = Header.dissectFTPBytes(ftpHeader);
@@ -20,6 +24,22 @@ public class Packet {
 
 	public byte[] getData() {
 		return data;
+	}
+	
+	public void setAddress(InetAddress addr) {
+		this.addr = addr;
+	}
+	
+	public void setPort(int port) {
+		this.port = port;
+	}
+	
+	public InetAddress getAddress() {
+		return this.addr;
+	}
+	
+	public int getPort() {
+		return this.port;
 	}
 	
 
