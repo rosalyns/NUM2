@@ -6,7 +6,7 @@ x storetask + sendtask onderscheid
 x Writingthread overbodig maken
 - handlePacket methode opsplitsen in methods (bv in Header ontleden) (ook makkelijker te testen)
 - client + server superklasse maken die allebei luisteren.
-- wait notify ipv busy wait
+x wait notify ipv busy wait
 - tasks kunnen niet bij socket.
 - meerdere requests up/down tegelijk
 - tests schrijven

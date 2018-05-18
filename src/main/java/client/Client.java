@@ -151,7 +151,7 @@ public class Client implements ITimeoutEventHandler {
 			DatagramPacket p = getEmptyPacket();
 			try {
 				sock.receive(p);
-				handlePacket(p);
+				handlePacket(convertPacket(p));
 
 			} catch (IOException e) {
 				keepAlive = false;
@@ -162,22 +162,18 @@ public class Client implements ITimeoutEventHandler {
 		
 	}
 	
-	private void handlePacket(DatagramPacket packet) {
-		byte[] rcvPkt = Arrays.copyOfRange(packet.getData(), 0, packet.getLength());
-		byte[] rcvHeader = Arrays.copyOfRange(packet.getData(), 0, Config.FTP_HEADERSIZE);
-		byte[] rcvData = Arrays.copyOfRange(rcvPkt, Config.FTP_HEADERSIZE, rcvPkt.length);
-		FTPHeader ftp = Header.dissectFTPBytes(rcvHeader);
+	private void handlePacket(Packet packet) {
 		
-		if (hasFlag(ftp.getFlags(), Config.REQ_DOWN) && hasFlag(ftp.getFlags(), Config.ACK)) {
-			byte[] data = new byte[rcvPkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE];
-			System.arraycopy(rcvPkt, Config.FTP_HEADERSIZE+Config.FILESIZE_HEADERSIZE, data, 0, rcvPkt.length - Config.FTP_HEADERSIZE - Config.FILESIZE_HEADERSIZE);
+		if (hasFlag(packet.getFtpHeader().getFlags(), Config.REQ_DOWN) && hasFlag(packet.getFtpHeader().getFlags(), Config.ACK)) {
+			byte[] data = new byte[packet.getData().length - Config.FILESIZE_HEADERSIZE];
+			System.arraycopy(packet.getData(), Config.FILESIZE_HEADERSIZE, data, 0, packet.getData().length - Config.FILESIZE_HEADERSIZE);
 			
-			int fileSize = Header.bytes2int(rcvPkt[Config.FTP_HEADERSIZE],rcvPkt[Config.FTP_HEADERSIZE + 1],rcvPkt[Config.FTP_HEADERSIZE+2],rcvPkt[Config.FTP_HEADERSIZE+3]);
+			int fileSize = Header.bytes2int(packet.getData()[0], packet.getData()[1], packet.getData()[2], packet.getData()[3]);
 			if (Config.systemOuts) System.out.println("filesize is " + fileSize);
 			if (!requestedDowns.isEmpty()) {
 				StoreTask t = requestedDowns.poll();
 				t.setFileSize(fileSize);
-				t.setId(ftp.getTaskId());
+				t.setId(packet.getFtpHeader().getTaskId());
 				tasks.put(t.getTaskId(), t);
 				
 				Thread taskThread = new Thread(t);
@@ -189,10 +185,10 @@ public class Client implements ITimeoutEventHandler {
 				t.addObserver(progressBar);
 			}
 			
-		} else if (hasFlag(ftp.getFlags(), Config.REQ_UP) && hasFlag(ftp.getFlags(), Config.ACK)) {
+		} else if (hasFlag(packet.getFtpHeader().getFlags(), Config.REQ_UP) && hasFlag(packet.getFtpHeader().getFlags(), Config.ACK)) {
 			if (!requestedUps.isEmpty()) {
 				SendTask t = requestedUps.poll();
-				t.setId(ftp.getTaskId());
+				t.setId(packet.getFtpHeader().getTaskId());
 				tasks.put(t.getTaskId(), t);
 				
 				Thread taskThread = new Thread(t);
@@ -203,27 +199,38 @@ public class Client implements ITimeoutEventHandler {
 				guiThread.start();
 				t.addObserver(progressBar);
 			}
-		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER) && hasFlag(ftp.getFlags(), Config.ACK)) {
-			SendTask t = (SendTask) tasks.get(ftp.getTaskId());
-			t.acked(ftp.getAckNo());
-		} else if (hasFlag(ftp.getFlags(), Config.TRANSFER)) {
-			StoreTask t = (StoreTask) tasks.get(ftp.getTaskId());
+		} else if (hasFlag(packet.getFtpHeader().getFlags(), Config.TRANSFER) && hasFlag(packet.getFtpHeader().getFlags(), Config.ACK)) {
+			SendTask t = (SendTask) tasks.get(packet.getFtpHeader().getTaskId());
+			t.acked(packet.getFtpHeader().getAckNo());
+		} else if (hasFlag(packet.getFtpHeader().getFlags(), Config.TRANSFER)) {
+			StoreTask t = (StoreTask) tasks.get(packet.getFtpHeader().getTaskId());
 			if (t == null) {
-				System.out.println("Cannot find task #" + ftp.getTaskId());
+				System.out.println("Cannot find task #" + packet.getFtpHeader().getTaskId());
 				tasks.keySet().forEach((key) -> System.out.println(key));
 			} else {
-				t.addToQueue(new DataFragment(ftp.getSeqNo(), rcvData));
+				t.addToQueue(new DataFragment(packet.getFtpHeader().getSeqNo(), packet.getData()));
 				
-				byte[] sndHeader = Header.ftp(new FTPHeader(ftp.getTaskId(), 3, ftp.getSeqNo(), Config.ACK | Config.TRANSFER, 0xffffffff));
+				byte[] sndHeader = Header.ftp(new FTPHeader(packet.getFtpHeader().getTaskId(), 3, packet.getFtpHeader().getSeqNo(), Config.ACK | Config.TRANSFER, 0xffffffff));
 				this.sendPacket(sndHeader);
 			}
 			
-		} else if (hasFlag(ftp.getFlags(), Config.STATS)) {
+		} else if (hasFlag(packet.getFtpHeader().getFlags(), Config.STATS)) {
 			System.out.println("Packet has STATS flag set"); 
-		} else if (hasFlag(ftp.getFlags(), Config.LIST) && hasFlag(ftp.getFlags(), Config.ACK)) {
-			String files = new String(rcvData);
+		} else if (hasFlag(packet.getFtpHeader().getFlags(), Config.LIST) && hasFlag(packet.getFtpHeader().getFlags(), Config.ACK)) {
+			String files = new String(packet.getData());
 			view.showFilesOnServer(files.split(" "));
 		}
+	}
+	
+	/**
+	 * Dissects packet and returns a byte array with the header and the data separated.
+	 * @param pkt to be dissected
+	 * @return byte array of size 2 with [byte[] header, byte[] data]
+	 */
+	private Packet convertPacket(DatagramPacket pkt) {
+		byte[] rcvPkt = Arrays.copyOfRange(pkt.getData(), 0, pkt.getLength());
+		Packet result = new Packet(Arrays.copyOfRange(rcvPkt, 0, Config.FTP_HEADERSIZE), Arrays.copyOfRange(rcvPkt, Config.FTP_HEADERSIZE, rcvPkt.length));
+		return result;
 	}
 	
 	/**
