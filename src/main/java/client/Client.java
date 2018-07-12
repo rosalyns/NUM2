@@ -198,8 +198,8 @@ public class Client implements ITimeoutEventHandler {
 		} else {
 			t.addToQueue(new DataFragment(ftpHeader.getSeqNo(), packet.getData()));
 			
-			byte[] sndHeader = Header.ftpToBytes(new FTPHeader(ftpHeader.getTaskId(), 3, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.TRANSFER.getValue(), 0xffffffff));
-			this.sendPacket(sndHeader);
+			Packet sndPkt = new Packet(new FTPHeader(ftpHeader.getTaskId(), 3, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.TRANSFER.getValue(), 0xffffffff), new byte[0] );
+			this.sendPacket(sndPkt);
 		}
 	}
 
@@ -254,7 +254,8 @@ public class Client implements ITimeoutEventHandler {
 	 */
 	private Packet convertPacket(DatagramPacket pkt) {
 		byte[] rcvPkt = Arrays.copyOfRange(pkt.getData(), 0, pkt.getLength());
-		Packet result = new Packet(Arrays.copyOfRange(rcvPkt, 0, Config.FTP_HEADERSIZE), Arrays.copyOfRange(rcvPkt, Config.FTP_HEADERSIZE, rcvPkt.length));
+		byte[] ftpBytes = Arrays.copyOfRange(rcvPkt, 0, Config.FTP_HEADERSIZE);
+		Packet result = new Packet(Header.bytesToFTP(ftpBytes), Arrays.copyOfRange(rcvPkt, Config.FTP_HEADERSIZE, rcvPkt.length));
 		return result;
 	}
 	
@@ -268,13 +269,13 @@ public class Client implements ITimeoutEventHandler {
 	
 	
 	public void askForFiles() {
-		byte[] sndHeader = Header.ftpToBytes(new FTPHeader(0, RANDOM_SEQ, 0, Flag.LIST.getValue(), 0xffffffff));
-		sendPacket(sndHeader);
+		Packet sndPkt = new Packet(new FTPHeader(0, RANDOM_SEQ, 0, Flag.LIST.getValue(), 0xffffffff));
+		sendPacket(sndPkt);
 	}
 	
 	public void askForStatistics() {
-		byte[] sndHeader = Header.ftpToBytes(new FTPHeader(0, RANDOM_SEQ, 0, Flag.STATS.getValue(), 0xffffffff));
-		sendPacket(sndHeader);
+		Packet sndPkt = new Packet(new FTPHeader(0, RANDOM_SEQ, 0, Flag.STATS.getValue(), 0xffffffff));
+		sendPacket(sndPkt);
 	}
 	
 	public void askForProgress() {
@@ -284,9 +285,11 @@ public class Client implements ITimeoutEventHandler {
 	public void uploadFile(File file) {
 		int fileSize = Utils.getFileSize(file.getPath());
 		
-		byte[] sndHeader = Header.ftpToBytes(new FTPHeader(0, RANDOM_SEQ, 0, Flag.REQ_UP.getValue(), 0xffffffff));
-		byte[] sndHeader2 = Header.fileSizeInBytes(fileSize);
-		byte[] sndPkt = Utils.mergeArrays(sndHeader, sndHeader2, file.getName().getBytes());
+		FTPHeader ftp = new FTPHeader(0, RANDOM_SEQ, 0, Flag.REQ_UP.getValue(), 0xffffffff);
+		byte[] fileSizeHeader = Header.fileSizeInBytes(fileSize);
+		byte[] sndData = file.getName().getBytes();
+		Packet sndPkt = new Packet(ftp, fileSizeHeader, sndData);
+		
 		if (Config.systemOuts) System.out.println("Sending packet with seq_no " + RANDOM_SEQ + " and fileSize " + fileSize);
 		
 		SendTask t = new SendTask(file, sock, serverIp, port, fileSize);
@@ -297,8 +300,10 @@ public class Client implements ITimeoutEventHandler {
 	}
 	
 	public void downloadFile(File file) {
-		byte[] sndHeader = Header.ftpToBytes(new FTPHeader(0, RANDOM_SEQ, 0, Flag.REQ_DOWN.getValue(),	0xffffffff));
-		byte[] sndPkt = Utils.mergeArrays(sndHeader, file.getName().getBytes());
+		FTPHeader ftp = new FTPHeader(0, RANDOM_SEQ, 0, Flag.REQ_DOWN.getValue(),	0xffffffff);
+		byte[] sndData = file.getName().getBytes();
+		Packet sndPkt = new Packet(ftp, sndData);
+		
 		StoreTask t = new StoreTask(file, sock, serverIp, port, 0);
 		requestedDowns.add(t);
 		
@@ -310,9 +315,9 @@ public class Client implements ITimeoutEventHandler {
 		return new DatagramPacket(data, data.length);
 	}
 	
-	private void sendPacket(byte[] packet) {
+	private void sendPacket(Packet packet) {
 		try {
-			sock.send(new DatagramPacket(packet, packet.length, serverIp, port));
+			sock.send(new DatagramPacket(packet.getData(), packet.getDataLength(), serverIp, port));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -321,13 +326,13 @@ public class Client implements ITimeoutEventHandler {
 
 	@Override
 	public void TimeoutElapsed(Object tag) {
-		byte[] pkt = (byte[]) tag;
-		byte flags = pkt[8];
+		Packet pkt = (Packet) tag;
+		FTPHeader ftpHeader = pkt.getFtpHeader();
 		
-		if ((flags & Flag.REQ_UP.getValue()) == Flag.REQ_UP.getValue() && !requestedUps.isEmpty()) {
-			sendPacket((byte[]) tag);
-		} else if ((flags & Flag.REQ_DOWN.getValue()) == Flag.REQ_DOWN.getValue() && !requestedDowns.isEmpty()) {
-			sendPacket((byte[]) tag);
+		if (ftpHeader.hasFlag(Flag.REQ_UP) && !requestedUps.isEmpty()) {
+			sendPacket(pkt);
+		} else if (ftpHeader.hasFlag(Flag.REQ_DOWN) && !requestedDowns.isEmpty()) {
+			sendPacket(pkt);
 		}
 	}
 	
