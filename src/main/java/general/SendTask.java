@@ -57,7 +57,7 @@ public class SendTask extends Task implements ITimeoutEventHandler{
 		while (!lastPacket) { 
 			while (!lastPacket && inSendingWindow(sequenceNumber)) {
 
-				byte[] sndHeader = Header.ftp(new FTPHeader(this.id, sequenceNumber, 0, Flag.TRANSFER, 0xffffffff));
+				byte[] sndHeader = Header.ftpToBytes(new FTPHeader(this.id, sequenceNumber, 0, Flag.TRANSFER.getValue(), 0xffffffff));
 				byte[] sndData = null;
 				try {
 					sndData = Utils.getNextContents(fileToUpload);

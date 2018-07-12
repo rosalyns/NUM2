@@ -6,21 +6,21 @@ public class Header {
 
 	private Header() {}
 	
-	public static byte[] ftp(FTPHeader ftp) {
+	public static byte[] ftpToBytes(FTPHeader ftp) {
 		byte[] header = new byte[Config.FTP_HEADERSIZE];
 
 		//task_id
-		byte[] task = int2twoBytes(ftp.getTaskId());
+		byte[] task = intTo2Bytes(ftp.getTaskId());
 		header[0] = task[0];
 		header[1] = task[1];
 		
 		//seq_number
-		byte[] seq = int2twoBytes(ftp.getSeqNo());
+		byte[] seq = intTo2Bytes(ftp.getSeqNo());
 		header[2] = seq[0];
 		header[3] = seq[1];
 		
 		//ack_number
-		byte[] ack = int2twoBytes(ftp.getAckNo());
+		byte[] ack = intTo2Bytes(ftp.getAckNo());
 		header[4] = ack[0];
 		header[5] = ack[1];
 		
@@ -29,14 +29,14 @@ public class Header {
 		header[7] = seq[1];
 		
 		//window_size
-		byte[] window = int2twoBytes(ftp.getWindowSize());
+		byte[] window = intTo2Bytes(ftp.getWindowSize());
 		header[8] = window[0];
 		header[9] = window[1];
 		
 		return header;
 	}
 	
-	public static FTPHeader dissectFTPBytes(byte[] header) {
+	public static FTPHeader bytesToFTP(byte[] header) {
 		
 		int taskId = Header.bytes2int(header[0],header[1]);
 		int seqNo = Header.bytes2int(header[2],header[3]);
@@ -47,10 +47,10 @@ public class Header {
 		return new FTPHeader(taskId, seqNo, ackNo, flags, windowSize);
 	}
 	
-	public static byte[] fileSize(int fileSize) {
+	public static byte[] fileSizeInBytes(int fileSize) {
 		byte[] header = new byte[4];
 		
-		byte[] size = int2fourBytes(fileSize);
+		byte[] size = intTo4Bytes(fileSize);
 		header[0] = size[0];
 		header[1] = size[1];
 		header[2] = size[2];
@@ -59,26 +59,26 @@ public class Header {
 		return header;
 	}
 	
-	public static byte[] int2XBytes(int no, int noBytes) {
-		//throw exception
-		
-		byte[] bytes = new byte[noBytes];
-		
-		for (int i = 0; i < bytes.length; i++) {
-			bytes[bytes.length - 1 - i] = (byte) ((no >> (8 * i)) & 0xFF);
-		}
-		
-		return bytes;
-	}
+//	public static byte[] intToXBytes(int no, int noBytes) {
+//		//throw exception
+//		
+//		byte[] bytes = new byte[noBytes];
+//		
+//		for (int i = 0; i < bytes.length; i++) {
+//			bytes[bytes.length - 1 - i] = (byte) ((no >> (8 * i)) & 0xFF);
+//		}
+//		
+//		return bytes;
+//	}
 	
-	public static byte[] int2twoBytes(int no) {
+	public static byte[] intTo2Bytes(int no) {
 		byte[] bytes = new byte[2];
 		bytes[0] = (byte) ((no >> 8) & 0xFF);
 		bytes[1] = (byte) (no & 0xFF);
 		return bytes;
 	}
 	
-	public static byte[] int2fourBytes(int no) {
+	public static byte[] intTo4Bytes(int no) {
 		byte[] bytes = new byte[4];
 		bytes[0] = (byte) ((no >> 24) & 0xFF);
 		bytes[1] = (byte) ((no >> 16) & 0xFF);
@@ -87,7 +87,7 @@ public class Header {
 		return bytes;
 	}
 	
-	private static int xbytes2int(byte...array) {
+	private static int xBytesToInt(byte...array) {
 		int result = 0;
 		
 		for (int i = 0; i < array.length; i++) {
@@ -97,20 +97,20 @@ public class Header {
 		return result;
 	}
 	
-	public static int bytes2int(byte a) {
-		return Header.xbytes2int(a);
+	public static int bytesToInt(byte a) {
+		return Header.xBytesToInt(a);
 	}
 
 	public static int bytes2int(byte a, byte b) {
-		return Header.xbytes2int(a, b);
+		return Header.xBytesToInt(a, b);
 	}
 
 	public static int bytes2int(byte a, byte b, byte c) {
-		return Header.xbytes2int(a, b, c);
+		return Header.xBytesToInt(a, b, c);
 	}
 
 	public static int bytes2int(byte a, byte b, byte c, byte d) {
-		return Header.xbytes2int(a, b, c, d);
+		return Header.xBytesToInt(a, b, c, d);
 	}
 	
 	public static byte[] mergeArrays(byte[]... arrays) {
@@ -150,7 +150,7 @@ public class Header {
 	}
 	
 	public static byte[] addChecksum(byte[] pkt, int checksum) {
-		byte[] sum = int2twoBytes(checksum);
+		byte[] sum = intTo2Bytes(checksum);
 		pkt[2] = sum[0];
 		pkt[3] = sum[1];
 		return pkt;

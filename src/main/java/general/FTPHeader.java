@@ -35,8 +35,8 @@ public class FTPHeader {
 		return windowSize;
 	}
 	
-	public boolean hasFlag(int flag) {
-		return (this.flags & flag) == flag;
+	public boolean hasFlag(Flag flag) {
+		return (this.flags & flag.getValue()) == flag.getValue();
 	}
 	
 }

@@ -51,7 +51,7 @@ public class HeaderTest {
 	@Test
 	public final void testBytes2intByte() {
 		byte a = 15;
-		int act = Header.bytes2int(a);
+		int act = Header.bytesToInt(a);
 		assertEquals(15, act);
 		assertEquals(15, act & 0xFF);
 	}

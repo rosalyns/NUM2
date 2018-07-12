@@ -9,7 +9,7 @@ public class Packet {
 	private int port;
 	
 	public Packet(byte[] ftpHeader, byte[] data) {
-		this.ftpHeader = Header.dissectFTPBytes(ftpHeader);
+		this.ftpHeader = Header.bytesToFTP(ftpHeader);
 		this.data = data;
 	}
 	

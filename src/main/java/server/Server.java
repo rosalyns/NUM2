@@ -106,7 +106,7 @@ public class Server {
 
 	private void handleListRequest(Packet packet, FTPHeader ftpHeader) {
 		this.allFiles = folder.listFiles();
-		byte[] sndHeader = Header.ftp(new FTPHeader(0, RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK | Flag.LIST, 0xffffffff));
+		byte[] sndHeader = Header.ftpToBytes(new FTPHeader(0, RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.LIST.getValue(), 0xffffffff));
 		byte[] sndData = listFiles().getBytes();
 		byte[] sndPkt = Utils.mergeArrays(sndHeader, sndData);
 		this.sendPacket(sndPkt,  packet.getAddress(), packet.getPort());
@@ -120,7 +120,7 @@ public class Server {
 		StoreTask t = (StoreTask) tasks.get(ftpHeader.getTaskId());
 		t.addToQueue(new DataFragment(ftpHeader.getSeqNo(), packet.getData()));
 		
-		byte[] sndHeader = Header.ftp(new FTPHeader(t.getId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK | Flag.TRANSFER, 0xffffffff));
+		byte[] sndHeader = Header.ftpToBytes(new FTPHeader(t.getId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.TRANSFER.getValue(), 0xffffffff));
 		this.sendPacket(sndHeader, packet.getAddress(), packet.getPort());
 	}
 
@@ -144,7 +144,7 @@ public class Server {
 		tasks.put(t.getId(), t);
 		currentTaskId++;
 		
-		byte[] sndHeader = Header.ftp(new FTPHeader(t.getId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK | Flag.REQ_UP, 0xffffffff));
+		byte[] sndHeader = Header.ftpToBytes(new FTPHeader(t.getId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.REQ_UP.getValue(), 0xffffffff));
 		this.sendPacket(sndHeader, packet.getAddress(), packet.getPort());
 		
 		Thread taskThread = new Thread(t);
@@ -159,8 +159,8 @@ public class Server {
 		tasks.put(t.getId(), t);
 		currentTaskId++;
 		
-		byte[] sndHeader = Header.ftp(new FTPHeader(t.getId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK | Flag.REQ_DOWN, 0xffffffff));//TODO think about seqNo?
-		byte[] sndSizeHeader = Header.fileSize(fileSize);
+		byte[] sndHeader = Header.ftpToBytes(new FTPHeader(t.getId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.REQ_DOWN.getValue(), 0xffffffff));//TODO think about seqNo?
+		byte[] sndSizeHeader = Header.fileSizeInBytes(fileSize);
 		byte[] sndPkt = Utils.mergeArrays(sndHeader, sndSizeHeader);
 		this.sendPacket(sndPkt, packet.getAddress(), packet.getPort());
 		
