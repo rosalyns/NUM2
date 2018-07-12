@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -74,9 +75,7 @@ public class Server {
 		if (packetString.equals("DISCOVER_REQUEST")) {
 			byte[] sndData = "DISCOVER_RESPONSE Hello, I'm a raspberry Pi!".getBytes();
 			Packet sndPkt = new Packet(sndData);
-			sndPkt.setAddress(packet.getAddress());
-			sndPkt.setPort(packet.getPort());
-			this.sendPacket(sndPkt);
+			this.sendPacket(sndPkt, packet.getAddress(), packet.getPort());
 
 			System.out.println(
 					getClass().getName() + ">>>Sent packet to: " + packet.getAddress().getHostAddress());
@@ -86,49 +85,48 @@ public class Server {
 		FTPHeader ftpHeader = packet.getFtpHeader();
 		
 		if (ftpHeader.hasFlag(Flag.REQ_DOWN)) {
-			handleDownloadRequest(packet, ftpHeader);
+			handleDownloadRequest(packet);
 		} else if (ftpHeader.hasFlag(Flag.REQ_UP)) {
-			handleUploadRequest(packet, ftpHeader);
+			handleUploadRequest(packet);
 		} else if (ftpHeader.hasFlag(Flag.TRANSFER) && ftpHeader.hasFlag(Flag.ACK)) {
 			handleAck(ftpHeader);
 		} else if (ftpHeader.hasFlag(Flag.TRANSFER)) {
-			handleData(packet, ftpHeader);
+			handleData(packet);
 		} else if (ftpHeader.hasFlag(Flag.STATS)) {
-			handleStatsRequest(packet, ftpHeader);
+			handleStatsRequest(packet);
 		} else if (ftpHeader.hasFlag(Flag.LIST)) {
-			handleListRequest(packet, ftpHeader);
+			handleListRequest(packet);
 		} else if (ftpHeader.hasFlag(Flag.PAUSE)) {
-			handlePauseRequest(packet, ftpHeader);
+			handlePauseRequest(packet);
 		}
 	}
 	
-	private void handleStatsRequest(Packet packet, FTPHeader ftpHeader) {
+	private void handleStatsRequest(Packet packet) {
 		//TODO implement stats
 	}
 
-	private void handleListRequest(Packet packet, FTPHeader ftpHeader) {
+	private void handleListRequest(Packet packet) {
+		FTPHeader ftpHeader = packet.getFtpHeader();
 		this.allFiles = folder.listFiles();
 		
 		FTPHeader ftp = new FTPHeader(0, RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.LIST.getValue(), 0xffffffff);
 		byte[] sndData = listFiles().getBytes();
 		Packet sndPkt = new Packet(ftp, sndData);
-		sndPkt.setAddress(packet.getAddress());
-		sndPkt.setPort(packet.getPort());
-		this.sendPacket(sndPkt);
+		this.sendPacket(sndPkt, packet.getAddress(), packet.getPort());
 	}
 	
-	private void handlePauseRequest(Packet packet, FTPHeader ftpHeader) {
+	private void handlePauseRequest(Packet packet) {
 		//TODO implement pause
 	}
 
-	private void handleData(Packet packet, FTPHeader ftpHeader) {
+	private void handleData(Packet packet) {
+		FTPHeader ftpHeader = packet.getFtpHeader();
+
 		StoreTask t = (StoreTask) tasks.get(ftpHeader.getTaskId());
 		t.addToQueue(new DataFragment(ftpHeader.getSeqNo(), packet.getData()));
 		
 		Packet sndPkt = new Packet(new FTPHeader(t.getId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.TRANSFER.getValue(), 0xffffffff));
-		sndPkt.setAddress(packet.getAddress());
-		sndPkt.setPort(packet.getPort());
-		this.sendPacket(sndPkt);
+		this.sendPacket(sndPkt, packet.getAddress(), packet.getPort());
 	}
 
 	private void handleAck(FTPHeader ftpHeader) {
@@ -136,7 +134,9 @@ public class Server {
 		task.acked(ftpHeader.getAckNo());
 	}
 
-	private void handleUploadRequest(Packet packet, FTPHeader ftpHeader) {
+	private void handleUploadRequest(Packet packet) {
+		FTPHeader ftpHeader = packet.getFtpHeader();
+
 		byte[] data = new byte[packet.getData().length - Config.FILESIZE_HEADERSIZE];
 		System.arraycopy(packet.getData(), Config.FILESIZE_HEADERSIZE, data, 0, packet.getData().length - Config.FILESIZE_HEADERSIZE);
 		
@@ -152,15 +152,15 @@ public class Server {
 		currentTaskId++;
 		
 		Packet sndPkt = new Packet(new FTPHeader(t.getId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.REQ_UP.getValue(), 0xffffffff));
-		sndPkt.setAddress(packet.getAddress());
-		sndPkt.setPort(packet.getPort());
-		this.sendPacket(sndPkt);
+		this.sendPacket(sndPkt, packet.getAddress(), packet.getPort());
 		
 		Thread taskThread = new Thread(t);
 		taskThread.start();
 	}
 
-	private void handleDownloadRequest(Packet packet, FTPHeader ftpHeader) {
+	private void handleDownloadRequest(Packet packet) {
+		FTPHeader ftpHeader = packet.getFtpHeader();
+
 		int fileSize = Utils.getFileSize(path + new String(packet.getData()));
 		File file = new File(path + new String(packet.getData()));
 		SendTask t = new SendTask(file, sock, packet.getAddress(), packet.getPort(), fileSize);
@@ -172,9 +172,7 @@ public class Server {
 		
 		FTPHeader ftp = new FTPHeader(t.getId(), RANDOM_SEQ, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.REQ_DOWN.getValue(), 0xffffffff);
 		Packet sndPkt = new Packet(ftp, sndSizeHeader);
-		sndPkt.setAddress(packet.getAddress());
-		sndPkt.setPort(packet.getPort());
-		this.sendPacket(sndPkt);
+		this.sendPacket(sndPkt, packet.getAddress(), packet.getPort());
 		
 		Thread taskThread = new Thread(t);
 		taskThread.start();
@@ -207,9 +205,9 @@ public class Server {
 		return new DatagramPacket(data, data.length);
 	}
 	
-	private void sendPacket(Packet packet) {
+	private void sendPacket(Packet packet, InetAddress addr, int port) {
 		try {
-			sock.send(new DatagramPacket(packet.getData(), packet.getDataLength(), packet.getAddress(), packet.getPort()));
+			sock.send(new DatagramPacket(packet.getData(), packet.getDataLength(), addr, port));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
