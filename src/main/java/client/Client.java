@@ -166,60 +166,82 @@ public class Client implements ITimeoutEventHandler {
 		FTPHeader ftpHeader = packet.getFtpHeader();
 		
 		if (ftpHeader.hasFlag(Flag.REQ_DOWN) && ftpHeader.hasFlag(Flag.ACK)) {
-			byte[] data = new byte[packet.getData().length - Config.FILESIZE_HEADERSIZE];
-			System.arraycopy(packet.getData(), Config.FILESIZE_HEADERSIZE, data, 0, packet.getData().length - Config.FILESIZE_HEADERSIZE);
-			
-			int fileSize = Header.bytes2int(packet.getData()[0], packet.getData()[1], packet.getData()[2], packet.getData()[3]);
-			if (Config.systemOuts) System.out.println("filesize is " + fileSize);
-			if (!requestedDowns.isEmpty()) {
-				StoreTask t = requestedDowns.poll();
-				t.setFileSize(fileSize);
-				t.setId(ftpHeader.getTaskId());
-				tasks.put(t.getTaskId(), t);
-				
-				Thread taskThread = new Thread(t);
-				taskThread.start();
-				
-				ProgressGUI progressBar = new ProgressGUI("Downloading "+ t.getName());
-				Thread guiThread = new Thread(progressBar);
-				guiThread.start();
-				t.addObserver(progressBar);
-			}
-			
+			handleDownRequestAck(packet, ftpHeader);
 		} else if (ftpHeader.hasFlag(Flag.REQ_UP) && ftpHeader.hasFlag(Flag.ACK)) {
-			if (!requestedUps.isEmpty()) {
-				SendTask t = requestedUps.poll();
-				t.setId(ftpHeader.getTaskId());
-				tasks.put(t.getTaskId(), t);
-				
-				Thread taskThread = new Thread(t);
-				taskThread.start();
-				
-				ProgressGUI progressBar = new ProgressGUI("Uploading " + t.getName());
-				Thread guiThread = new Thread(progressBar);
-				guiThread.start();
-				t.addObserver(progressBar);
-			}
+			handleUpRequestAck(ftpHeader);
 		} else if (ftpHeader.hasFlag(Flag.TRANSFER) && ftpHeader.hasFlag(Flag.ACK)) {
-			SendTask t = (SendTask) tasks.get(ftpHeader.getTaskId());
-			t.acked(ftpHeader.getAckNo());
+			handleDataAck(ftpHeader);
 		} else if (ftpHeader.hasFlag(Flag.TRANSFER)) {
-			StoreTask t = (StoreTask) tasks.get(ftpHeader.getTaskId());
-			if (t == null) {
-				System.out.println("Cannot find task #" + ftpHeader.getTaskId());
-				tasks.keySet().forEach((key) -> System.out.println(key));
-			} else {
-				t.addToQueue(new DataFragment(ftpHeader.getSeqNo(), packet.getData()));
-				
-				byte[] sndHeader = Header.ftp(new FTPHeader(ftpHeader.getTaskId(), 3, ftpHeader.getSeqNo(), Flag.ACK | Flag.TRANSFER, 0xffffffff));
-				this.sendPacket(sndHeader);
-			}
-			
+			handleData(packet, ftpHeader);
 		} else if (ftpHeader.hasFlag(Flag.STATS)) {
-			System.out.println("Packet has STATS flag set"); 
+			handleStatsRequest(); 
 		} else if (ftpHeader.hasFlag(Flag.LIST) && ftpHeader.hasFlag(Flag.ACK)) {
-			String files = new String(packet.getData());
-			view.showFilesOnServer(files.split(" "));
+			handleListAck(packet);
+		}
+	}
+
+	private void handleListAck(Packet packet) {
+		String files = new String(packet.getData());
+		view.showFilesOnServer(files.split(" "));
+	}
+
+	private void handleStatsRequest() {
+		System.out.println("Packet has STATS flag set");
+	}
+
+	private void handleData(Packet packet, FTPHeader ftpHeader) {
+		StoreTask t = (StoreTask) tasks.get(ftpHeader.getTaskId());
+		if (t == null) {
+			System.out.println("Cannot find task #" + ftpHeader.getTaskId());
+			tasks.keySet().forEach((key) -> System.out.println(key));
+		} else {
+			t.addToQueue(new DataFragment(ftpHeader.getSeqNo(), packet.getData()));
+			
+			byte[] sndHeader = Header.ftp(new FTPHeader(ftpHeader.getTaskId(), 3, ftpHeader.getSeqNo(), Flag.ACK | Flag.TRANSFER, 0xffffffff));
+			this.sendPacket(sndHeader);
+		}
+	}
+
+	private void handleDataAck(FTPHeader ftpHeader) {
+		SendTask t = (SendTask) tasks.get(ftpHeader.getTaskId());
+		t.acked(ftpHeader.getAckNo());
+	}
+
+	private void handleUpRequestAck(FTPHeader ftpHeader) {
+		if (!requestedUps.isEmpty()) {
+			SendTask t = requestedUps.poll();
+			t.setId(ftpHeader.getTaskId());
+			tasks.put(t.getId(), t);
+			
+			Thread taskThread = new Thread(t);
+			taskThread.start();
+			
+			ProgressGUI progressBar = new ProgressGUI("Uploading " + t.getName());
+			Thread guiThread = new Thread(progressBar);
+			guiThread.start();
+			t.addObserver(progressBar);
+		}
+	}
+
+	private void handleDownRequestAck(Packet packet, FTPHeader ftpHeader) {
+		byte[] data = new byte[packet.getData().length - Config.FILESIZE_HEADERSIZE];
+		System.arraycopy(packet.getData(), Config.FILESIZE_HEADERSIZE, data, 0, packet.getData().length - Config.FILESIZE_HEADERSIZE);
+		
+		int fileSize = Header.bytes2int(packet.getData()[0], packet.getData()[1], packet.getData()[2], packet.getData()[3]);
+		if (Config.systemOuts) System.out.println("filesize is " + fileSize);
+		if (!requestedDowns.isEmpty()) {
+			StoreTask t = requestedDowns.poll();
+			t.setFileSize(fileSize);
+			t.setId(ftpHeader.getTaskId());
+			tasks.put(t.getId(), t);
+			
+			Thread taskThread = new Thread(t);
+			taskThread.start();
+			
+			ProgressGUI progressBar = new ProgressGUI("Downloading "+ t.getName());
+			Thread guiThread = new Thread(progressBar);
+			guiThread.start();
+			t.addObserver(progressBar);
 		}
 	}
 	

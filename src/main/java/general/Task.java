@@ -39,7 +39,7 @@ public abstract class Task extends Observable implements Runnable {
 		this.id = id;
 	}
 
-	public int getTaskId() {
+	public int getId() {
 		return this.id;
 	}
 	

@@ -84,7 +84,7 @@ public class TaskTest {
 	@Test
 	public void testSetAndGetTaskId() {
 		sendTask.setId(5);
-		assertEquals(5, sendTask.getTaskId());
+		assertEquals(5, sendTask.getId());
 	}
 
 	@Test

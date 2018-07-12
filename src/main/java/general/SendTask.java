@@ -72,7 +72,12 @@ public class SendTask extends Task implements ITimeoutEventHandler{
 				Utils.Timeout.SetTimeout(Config.TIMEOUT, this, sndPkt);
 				retransmissions++;
 
-				lastPacket = sndData.length < Config.DATASIZE;
+				try {
+					lastPacket = fileToUpload.getFilePointer() == fileToUpload.length();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+//						sndData.length < Config.DATASIZE;
 
 				if (Config.systemOuts) System.out.println("Sending packet with seq_no " + sequenceNumber);
 				sequenceNumber = Utils.incrementNumberModuloK(sequenceNumber);
