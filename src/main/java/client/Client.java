@@ -198,7 +198,7 @@ public class Client implements ITimeoutEventHandler {
 		} else {
 			t.addToQueue(new DataFragment(ftpHeader.getSeqNo(), packet.getData()));
 			
-			Packet sndPkt = new Packet(new FTPHeader(ftpHeader.getTaskId(), 3, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.TRANSFER.getValue(), 0xffffffff), new byte[0] );
+			Packet sndPkt = new Packet(new FTPHeader(ftpHeader.getTaskId(), 3, ftpHeader.getSeqNo(), Flag.ACK.getValue() | Flag.TRANSFER.getValue(), 0xffffffff));
 			this.sendPacket(sndPkt);
 		}
 	}
